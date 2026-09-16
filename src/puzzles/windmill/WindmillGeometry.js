@@ -265,3 +265,4 @@ export function buildWindmillModel(options = {}) {
   group.updateMatrixWorld(true);
   return group;
 }
+

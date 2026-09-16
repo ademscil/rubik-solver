@@ -192,3 +192,4 @@ export const windmillDefinition = {
 };
 
 export default windmillDefinition;
+

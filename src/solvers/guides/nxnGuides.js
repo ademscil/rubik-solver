@@ -369,15 +369,43 @@ export const GUIDE_STAGES_5X5 = Object.freeze([
   },
   {
     id: '5x5-stage-edges',
-    title: '2. Metode Reduksi Pemula: Memasangkan 12 Rusuk Triplet (Free Slice)',
-    desc: 'Setiap rusuk 5x5 terdiri dari 3 potongan: Sayap Kiri + Midge Tengah + Sayap Kanan. Gunakan metode Free Slice untuk menyelesaikan 8 rusuk pertama, lalu gunakan Flipping Algorithm untuk 4 rusuk terakhir (L4E).',
+    title: '2. Metode Reduksi Pemula: Memasangkan 12 Rusuk Triplet (Free Slice & L4E)',
+    desc: 'Setiap rusuk 5x5 terdiri dari 3 potongan: Sayap Kiri + Midge Tengah + Sayap Kanan. Gunakan metode Free Slice untuk menyelesaikan 8 rusuk pertama, lalu gunakan metode Slice-Flip-Slice untuk 4 rusuk terakhir (L4E) sesuai panduan Feliks Zemdegs.',
     cases: [
       {
-        id: '5x5-free-slice',
-        name: 'Free Slice & Flipping Algorithm',
+        id: '5x5-edge-insert-preserve',
+        name: 'Memasukkan Rusuk UF ke FR (Menjaga Orientasi)',
+        algorithm: "R U' R'",
+        description: 'Memasukkan rusuk dari posisi atas-depan (UF) ke kanan-depan (FR) dengan mempertahankan orientasi warnanya.',
+        tips: 'Gunakan jika stiker sudah cocok tanpa perlu dibalik.'
+      },
+      {
+        id: '5x5-edge-insert-flip',
+        name: 'Memasukkan Rusuk UF ke FR (Mengubah Orientasi)',
+        algorithm: "F R' F' R",
+        description: 'Memasukkan rusuk dari posisi atas-depan (UF) ke kanan-depan (FR) sekaligus membalik orientasi warnanya.',
+        tips: 'Gunakan jika orientasi rusuk perlu dibalik saat dimasukkan.'
+      },
+      {
+        id: '5x5-edge-flip',
+        name: 'Flipping Algorithm Rusuk FR (CubeSkills)',
+        algorithm: "R U R' F R' F' R",
+        description: 'Membalik orientasi sayap rusuk di posisi kanan-depan (FR). Merupakan inti dari teknik pemasangan rusuk 5x5.',
+        tips: 'Kombinasi 3 langkah Sexy Move (R U R\') dilanjutkan 4 langkah Sledgehammer (F R\' F\' R).'
+      },
+      {
+        id: '5x5-free-slice-uw',
+        name: 'Slice-Flip-Slice Lapisan Atas (Uw\')',
         algorithm: "Uw' R U R' F R' F' R Uw",
-        description: 'Geser irisan Uw\', pasangkan sayap ke midge tengah, balik dengan flipping algorithm jika orientasi terbalik, lalu kembalikan irisan.',
-        tips: 'Pastikan midge tengah menjadi patokan orientasi warna rusuk.'
+        description: 'Mengiris lapisan atas (Uw\'), membalik rusuk dengan trigger Flipping Algorithm di FR, lalu mengembalikan irisan (Uw).',
+        tips: 'Teknik wajib pada 4 rusuk terakhir untuk menjaga center tetap utuh.'
+      },
+      {
+        id: '5x5-free-slice-dw',
+        name: 'Slice-Flip-Slice Lapisan Bawah (Dw\')',
+        algorithm: "Dw' y' R U R' F R' F' R Dw",
+        description: 'Variasi irisan lapisan bawah (Dw\'), rotasi y\', membalik rusuk di FR, lalu mengembalikan irisan (Dw).',
+        tips: 'Dipakai saat pasangan rusuk berada di lapisan bawah.'
       }
     ]
   },

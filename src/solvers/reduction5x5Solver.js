@@ -96,10 +96,10 @@ const PART_5_3X3_PHASE = [
 // Part 6 Variations: Edge Parity & PLL Complete
 const PART_6_PARITY_PLL = [
   {
-    name: 'Paritas Sayap 5x5 & T-Perm Selesai',
-    moves: "Rw2 B2 U2 Lw U2 Rw' U2 Rw U2 F2 Rw F2 Lw' B2 Rw2 R U R' U' R' F R2 U' R' U' R U R' F'",
-    desc: 'Menyelesaikan kondisi sayap rusuk terbalik dengan algoritma paritas 5x5, lalu kunci dengan T-Perm.',
-    formula: "Paritas Sayap 5x5 + T-Perm PLL"
+    name: 'Paritas Sayap 5x5 (Feliks Zemdegs CubeSkills) & T-Perm Selesai',
+    moves: "Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 3Rw' U2 Rw U2 Rw' U2 Rw' R U R' U' R' F R2 U' R' U' R U R' F'",
+    desc: 'Menyelesaikan kondisi sayap rusuk terbalik dengan algoritma paritas resmi Feliks Zemdegs (CubeSkills), lalu dikunci dengan T-Perm.',
+    formula: "Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 3Rw' U2 Rw U2 Rw' U2 Rw'"
   },
   {
     name: 'T-Perm & U-Perm Selesai Langsung',

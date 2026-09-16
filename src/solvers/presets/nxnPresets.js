@@ -218,11 +218,11 @@ export const PRESETS_5X5 = Object.freeze([
     category: 'Solusi Lengkap',
     desc: 'Kondisi acak komprehensif yang diselesaikan menggunakan seluruh 6 tahapan metode reduksi.',
     stateDescription: 'Kondisi acak komprehensif untuk pembelajaran 6 tahap metode reduksi.',
-    setupMoves: "Rw U Rw' 2Rw U 2Rw' 3Rw U 3Rw' Uw' R U R' F R' F' R Uw F R U R' U' F' Rw2 B2 U2 Lw U2 Rw' U2 Rw U2 F2 Rw F2 Lw' B2 Rw2",
-    solutionMoves: "Rw2 B2 Lw F2 Rw' F2 U2 Rw' U2 Rw U2 Lw' U2 B2 Rw2 F R U R' U' F' Uw' R' F R F' R U' R' Uw 3Rw U' 3Rw' 2Rw' U' 2Rw' Rw U' Rw'",
-    algorithm: "Rw2 B2 Lw F2 Rw' F2 U2 Rw' U2 Rw U2 Lw' U2 B2 Rw2 F R U R' U' F' Uw' R' F R F' R U' R' Uw 3Rw U' 3Rw' 2Rw' U' 2Rw' Rw U' Rw'",
+    setupMoves: "Rw U Rw' 2Rw U 2Rw' 3Rw U 3Rw' Uw' R U R' F R' F' R Uw F R U R' U' F' Rw U2 Rw U2 Rw' U2 3Rw U2 Lw' U2 Rw U2 Rw' U2 Rw' x' U2 Rw'",
+    solutionMoves: "Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 3Rw' U2 Rw U2 Rw' U2 Rw' F R U R' U' F' Uw' R' F R F' R U' R' Uw 3Rw U' 3Rw' 2Rw' U' 2Rw' Rw U' Rw'",
+    algorithm: "Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 3Rw' U2 Rw U2 Rw' U2 Rw' F R U R' U' F' Uw' R' F R F' R U' R' Uw 3Rw U' 3Rw' 2Rw' U' 2Rw' Rw U' Rw'",
     stage: 'all',
-    tips: 'Solusi lengkap mencakup Part 1 (Centers) hingga Part 6 (Parity & PLL).'
+    tips: 'Solusi lengkap 6 tahap sesuai panduan Feliks Zemdegs (CubeSkills): Centers, Freeslice Edges, L4E Slice-Flip-Slice, 3x3 Stage, dan Paritas Sayap.'
   },
   {
     id: 'wing-parity',
