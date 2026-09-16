@@ -127,7 +127,7 @@ export const NOTATION_ALIASES = {
 export function parseAlgorithm(algString) {
   if (!algString || typeof algString !== "string") return [];
   // Hapus tanda kurung () atau [] yang sering dipakai grouping rumus
-  const cleaned = algString.replace(/[()\[\]]/g, " ");
+  const cleaned = algString.replace(/[()[\]]/g, " ");
   const rawTokens = cleaned.trim().split(/\s+/);
 
   const parsedMoves = [];

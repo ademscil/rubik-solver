@@ -1,8 +1,9 @@
-import React from 'react';
+import React, { useCallback } from 'react';
 import { Play, Pause, SkipBack, SkipForward, RotateCcw, FastForward, Info } from 'lucide-react';
-import { getMoveInfo } from '../cube/rubikNotation';
+import { getMoveInfo as defaultGetMoveInfo } from '../cube/rubikNotation';
 
 export default function PlaybackBar({
+  puzzle,
   moves = [],
   currentMoveIndex = 0,
   isPlaying = false,
@@ -14,9 +15,22 @@ export default function PlaybackBar({
   onSpeedChange,
   onSelectMoveIndex
 }) {
+  // Helper to dynamically resolve Indonesian move title and description for active puzzle
+  const resolveMoveInfo = useCallback((token) => {
+    if (!token) return { name: '', desc: '' };
+    if (puzzle && typeof puzzle.getMoveInfo === 'function') {
+      try {
+        const info = puzzle.getMoveInfo(token);
+        if (info) return info;
+      } catch (err) {
+        // fallback
+      }
+    }
+    return defaultGetMoveInfo(token) || { name: token, desc: `Putaran ${token}` };
+  }, [puzzle]);
+
   const currentMove = moves[currentMoveIndex] || null;
-  const currentInfo = currentMove ? getMoveInfo(currentMove) : null;
-  const progressPercent = moves.length > 0 ? ((currentMoveIndex) / moves.length) * 100 : 0;
+  const currentInfo = currentMove ? resolveMoveInfo(currentMove) : null;
 
   return (
     <div className="bg-slate-900/90 backdrop-blur-xl border-t border-slate-800/80 px-4 py-3 text-white shadow-2xl flex flex-col gap-2.5 w-full min-w-0 overflow-hidden">
@@ -30,6 +44,8 @@ export default function PlaybackBar({
             {moves.map((m, idx) => {
               const isCurrent = idx === currentMoveIndex;
               const isPast = idx < currentMoveIndex;
+              const info = resolveMoveInfo(m);
+
               return (
                 <button
                   key={`${m}-${idx}`}
@@ -41,7 +57,7 @@ export default function PlaybackBar({
                       ? 'bg-slate-800/90 text-slate-400 hover:bg-slate-700'
                       : 'bg-slate-800/40 text-slate-500 hover:bg-slate-700/60'
                   }`}
-                  title={getMoveInfo(m).desc}
+                  title={`${m}: ${info.name || ''} - ${info.desc || ''}`}
                 >
                   {m}
                 </button>

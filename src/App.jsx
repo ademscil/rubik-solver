@@ -6,14 +6,19 @@ import PlaybackBar from './components/PlaybackBar';
 import GuideSidebar from './components/GuideSidebar';
 import CustomLayoutModal from './components/CustomLayoutModal';
 import NotationModal from './components/NotationModal';
-import { parseAlgorithm, getInverseMove } from './cube/rubikNotation';
-import { generateScramble, POPULAR_PRESETS } from './cube/presets';
-import { GUIDE_STAGES } from './data/guideStages';
+import PuzzleSelector from './components/PuzzleSelector';
+import { puzzleRegistry } from './puzzles/registry.js';
+import { parseAlgorithm as defaultParseAlg, getInverseMove as defaultGetInverse } from './cube/rubikNotation';
+import { generateScramble as defaultScramble } from './cube/presets';
 
 export default function App() {
   const cubeRef = useRef(null);
 
-  // States
+  // Active Puzzle State
+  const [currentPuzzleId, setCurrentPuzzleId] = useState('cube-3x3');
+  const [currentPuzzle, setCurrentPuzzle] = useState(null);
+
+  // Viewport / Inspection States
   const [isInspectMode, setIsInspectMode] = useState(true);
   const [highlightMode, setHighlightMode] = useState('all');
   const [speed, setSpeed] = useState(1);
@@ -24,6 +29,7 @@ export default function App() {
   const [isPlaying, setIsPlaying] = useState(false);
 
   // Modal States
+  const [isPuzzleSelectorOpen, setIsPuzzleSelectorOpen] = useState(false);
   const [isNotationModalOpen, setIsNotationModalOpen] = useState(false);
   const [isCustomLayoutOpen, setIsCustomLayoutOpen] = useState(false);
 
@@ -31,7 +37,7 @@ export default function App() {
   const [activeStageIndex, setActiveStageIndex] = useState(0);
   const [activeCaseId, setActiveCaseId] = useState(null);
 
-  // Refs untuk sinkronisasi async playback
+  // Refs for async animation loop synchronization
   const isPlayingRef = useRef(isPlaying);
   isPlayingRef.current = isPlaying;
 
@@ -41,15 +47,39 @@ export default function App() {
   const activeMovesRef = useRef(activeMoves);
   activeMovesRef.current = activeMoves;
 
-  // Inisialisasi: muat kasus OLL Parity sebagai contoh awal yang menarik
-  useEffect(() => {
-    const defaultCase = GUIDE_STAGES[4].cases[0]; // OLL Parity
-    if (defaultCase) {
-      handleApplyAlgorithm(defaultCase);
+  // Handle switching to a different puzzle seamlessly without page reload
+  const handleSelectPuzzle = useCallback(async (puzzleId) => {
+    setIsPuzzleSelectorOpen(false);
+    setIsPlaying(false);
+    setActiveMoves([]);
+    setCurrentMoveIndex(0);
+    setActiveCaseId(null);
+    setActiveStageIndex(0);
+
+    try {
+      const def = await puzzleRegistry.load(puzzleId);
+      setCurrentPuzzleId(def.id || puzzleId);
+      setCurrentPuzzle(def);
+
+      // Select first available guide case if present
+      if (def.guideStages && def.guideStages.length > 0 && def.guideStages[0].cases && def.guideStages[0].cases[0]) {
+        const firstCase = def.guideStages[0].cases[0];
+        setActiveCaseId(firstCase.id);
+        const parseFn = def.parseAlgorithm || defaultParseAlg;
+        const moves = parseFn(firstCase.algorithm || firstCase.moves || '');
+        setActiveMoves(moves);
+      }
+    } catch (err) {
+      console.error('Failed to load puzzle definition:', err);
     }
   }, []);
 
-  // Callback saat 1 move Three.js selesai
+  // Initial load: load default 3x3 Rubik's Cube
+  useEffect(() => {
+    handleSelectPuzzle('cube-3x3');
+  }, [handleSelectPuzzle]);
+
+  // Callback triggered when Three.js animation finishes 1 move
   const handleMoveComplete = useCallback((finishedMove) => {
     if (isPlayingRef.current) {
       const nextIdx = currentMoveIndexRef.current + 1;
@@ -57,13 +87,13 @@ export default function App() {
 
       if (nextIdx < total) {
         setCurrentMoveIndex(nextIdx);
-        // Putar langkah berikutnya
+        // Play next move in sequence
         const nextMove = activeMovesRef.current[nextIdx];
         if (cubeRef.current && nextMove) {
           cubeRef.current.makeMove(nextMove, handleMoveComplete);
         }
       } else {
-        // Semua gerakan selesai!
+        // Algorithm completed
         setCurrentMoveIndex(total);
         setIsPlaying(false);
         try {
@@ -80,7 +110,7 @@ export default function App() {
   }, []);
 
   // Toggle Play / Pause
-  const handlePlayToggle = () => {
+  const handlePlayToggle = useCallback(() => {
     if (activeMoves.length === 0) return;
 
     if (isPlaying) {
@@ -88,7 +118,6 @@ export default function App() {
     } else {
       let startIdx = currentMoveIndex;
       if (startIdx >= activeMoves.length) {
-        // Jika sudah di akhir, ulangi dari awal
         startIdx = 0;
         setCurrentMoveIndex(0);
       }
@@ -99,10 +128,10 @@ export default function App() {
         cubeRef.current.makeMove(move, handleMoveComplete);
       }
     }
-  };
+  }, [activeMoves, isPlaying, currentMoveIndex, handleMoveComplete]);
 
-  // Step Next (Maju 1 langkah)
-  const handleStepNext = () => {
+  // Step Next (1 move forward)
+  const handleStepNext = useCallback(() => {
     if (currentMoveIndex >= activeMoves.length) return;
     if (cubeRef.current?.isBusy()) return;
 
@@ -118,68 +147,77 @@ export default function App() {
         }
       });
     }
-  };
+  }, [currentMoveIndex, activeMoves]);
 
-  // Step Prev (Mundur 1 langkah)
-  const handleStepPrev = () => {
+  // Step Prev (1 move backward using inverse)
+  const handleStepPrev = useCallback(() => {
     if (currentMoveIndex <= 0) return;
     if (cubeRef.current?.isBusy()) return;
 
     const prevMove = activeMoves[currentMoveIndex - 1];
-    const inverse = getInverseMove(prevMove);
+    const inverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
+    const inverse = inverseFn(prevMove);
     if (cubeRef.current && inverse) {
       cubeRef.current.makeMove(inverse, () => {
         setCurrentMoveIndex(currentMoveIndex - 1);
       });
     }
-  };
+  }, [currentMoveIndex, activeMoves, currentPuzzle]);
 
-  // Reset Algoritma
-  const handleResetTimeline = () => {
+  // Reset timeline playback
+  const handleResetTimeline = useCallback(() => {
     setIsPlaying(false);
     setCurrentMoveIndex(0);
     if (cubeRef.current) {
       cubeRef.current.resetCube();
     }
-  };
+  }, []);
 
-  // Terapkan Rumus dari Panduan
-  const handleApplyAlgorithm = (caseItem) => {
+  // Apply algorithm from GuideSidebar
+  const handleApplyAlgorithm = useCallback((caseItem) => {
     setIsPlaying(false);
     setActiveCaseId(caseItem.id);
 
-    const moves = parseAlgorithm(caseItem.algorithm || caseItem.moves);
+    const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
+    const moves = parseFn(caseItem.algorithm || caseItem.moves || '');
     setActiveMoves(moves);
     setCurrentMoveIndex(0);
 
-    // Otomatis ubah mode highlight sesuai tahap
-    if (caseItem.id.startsWith('c-')) {
+    if (cubeRef.current) {
+      cubeRef.current.resetCube();
+    }
+
+    if (caseItem.id?.startsWith('c-')) {
       setHighlightMode('centers');
-    } else if (caseItem.id.startsWith('e-')) {
+    } else if (caseItem.id?.startsWith('e-')) {
       setHighlightMode('edges');
-    } else if (caseItem.id.startsWith('p-')) {
+    } else if (caseItem.id?.startsWith('p-')) {
       setHighlightMode('parity');
     } else {
       setHighlightMode('all');
     }
-  };
+  }, [currentPuzzle]);
 
-  // Terapkan Preset Kasus Macet
-  const handleApplyPreset = (preset) => {
+  // Apply preset case
+  const handleApplyPreset = useCallback((preset) => {
     setIsPlaying(false);
     if (cubeRef.current) {
       cubeRef.current.resetCube();
     }
 
-    if (preset.solutionMoves) {
-      const moves = parseAlgorithm(preset.solutionMoves);
+    const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
+    const solutionAlg = preset.solutionMoves || preset.algorithm;
+    if (solutionAlg) {
+      const moves = parseFn(solutionAlg);
       setActiveMoves(moves);
+      setCurrentMoveIndex(0);
+    } else {
+      setActiveMoves([]);
       setCurrentMoveIndex(0);
     }
 
-    // Jalankan setup moves jika ada
     if (preset.setupMoves && cubeRef.current) {
-      const setupMoves = parseAlgorithm(preset.setupMoves);
+      const setupMoves = parseFn(preset.setupMoves);
       setupMoves.forEach(m => {
         cubeRef.current.makeMove(m);
       });
@@ -189,24 +227,25 @@ export default function App() {
     else if (preset.stage === 'edges') setHighlightMode('edges');
     else if (preset.stage === 'parity') setHighlightMode('parity');
     else setHighlightMode('all');
-  };
+  }, [currentPuzzle]);
 
-  // Acak Kubus (Scramble)
-  const handleScramble = () => {
+  // Scramble puzzle
+  const handleScramble = useCallback(() => {
     setIsPlaying(false);
     if (cubeRef.current) {
       cubeRef.current.resetCube();
-      const scramble = generateScramble(30);
-      const moves = parseAlgorithm(scramble);
-      // Eksekusi scramble
+      const scrambleFn = currentPuzzle?.generateScramble || defaultScramble;
+      const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
+      const scrambleStr = scrambleFn(25);
+      const moves = parseFn(scrambleStr);
       moves.forEach(m => cubeRef.current.makeMove(m));
       setActiveMoves([]);
       setCurrentMoveIndex(0);
     }
-  };
+  }, [currentPuzzle]);
 
-  // Reset Kubus ke Solved
-  const handleResetCube = () => {
+  // Reset puzzle to solved state
+  const handleResetCube = useCallback(() => {
     setIsPlaying(false);
     setActiveMoves([]);
     setCurrentMoveIndex(0);
@@ -215,21 +254,23 @@ export default function App() {
       cubeRef.current.resetCube();
       cubeRef.current.resetCamera('isometric');
     }
-  };
+  }, []);
 
-  // Putar Manual via Tombol
-  const handleQuickMove = (moveStr) => {
+  // Quick manual move
+  const handleQuickMove = useCallback((moveStr) => {
     if (cubeRef.current) {
       cubeRef.current.makeMove(moveStr);
     }
-  };
+  }, []);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
       {/* Top Navigation Header */}
       <Header
+        puzzle={currentPuzzle}
         isInspectMode={isInspectMode}
         onToggleInspectMode={() => setIsInspectMode(!isInspectMode)}
+        onOpenPuzzleSelector={() => setIsPuzzleSelectorOpen(true)}
         onScramble={handleScramble}
         onResetCube={handleResetCube}
         onOpenNotationModal={() => setIsNotationModalOpen(true)}
@@ -243,6 +284,7 @@ export default function App() {
         <main className="flex-1 relative flex flex-col min-h-0 min-w-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
           <RubikViewer
             ref={cubeRef}
+            puzzle={currentPuzzle}
             isInspectMode={isInspectMode}
             animationSpeed={speed}
             highlightMode={highlightMode}
@@ -251,6 +293,7 @@ export default function App() {
 
           {/* Bottom Playback Timeline */}
           <PlaybackBar
+            puzzle={currentPuzzle}
             moves={activeMoves}
             currentMoveIndex={currentMoveIndex}
             isPlaying={isPlaying}
@@ -266,6 +309,7 @@ export default function App() {
 
         {/* Right Guide Sidebar */}
         <GuideSidebar
+          puzzle={currentPuzzle}
           activeStageIndex={activeStageIndex}
           onSelectStage={setActiveStageIndex}
           onApplyAlgorithm={handleApplyAlgorithm}
@@ -276,8 +320,17 @@ export default function App() {
         />
       </div>
 
-      {/* Modals */}
+      {/* Universal Puzzle Selector Modal */}
+      <PuzzleSelector
+        isOpen={isPuzzleSelectorOpen}
+        onClose={() => setIsPuzzleSelectorOpen(false)}
+        currentPuzzleId={currentPuzzleId}
+        onSelectPuzzle={handleSelectPuzzle}
+      />
+
+      {/* Custom Layout & Presets Modal */}
       <CustomLayoutModal
+        puzzle={currentPuzzle}
         isOpen={isCustomLayoutOpen}
         onClose={() => setIsCustomLayoutOpen(false)}
         onApplyLayout={(netState) => {
@@ -288,7 +341,9 @@ export default function App() {
         onApplyPreset={handleApplyPreset}
       />
 
+      {/* Notation Modal */}
       <NotationModal
+        puzzle={currentPuzzle}
         isOpen={isNotationModalOpen}
         onClose={() => setIsNotationModalOpen(false)}
         onTestMove={handleQuickMove}

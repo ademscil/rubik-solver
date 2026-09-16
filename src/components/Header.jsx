@@ -1,9 +1,11 @@
-import React, { useState } from 'react';
-import { Eye, RotateCw, Shuffle, RotateCcw, HelpCircle, Palette, Box, ChevronDown } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Eye, RotateCw, Shuffle, RotateCcw, HelpCircle, Palette, Box, ChevronDown, Layers } from 'lucide-react';
 
 export default function Header({
+  puzzle,
   isInspectMode,
   onToggleInspectMode,
+  onOpenPuzzleSelector,
   onScramble,
   onResetCube,
   onOpenNotationModal,
@@ -12,55 +14,94 @@ export default function Header({
 }) {
   const [showQuickMoves, setShowQuickMoves] = useState(false);
 
-  const quickMoveButtons = [
-    { label: "R", title: "Right" },
-    { label: "R'", title: "Right Prime" },
-    { label: "Rw", title: "Right Wide (2 Lapis)" },
-    { label: "Rw'", title: "Right Wide Prime" },
-    { label: "L", title: "Left" },
-    { label: "L'", title: "Left Prime" },
-    { label: "Lw", title: "Left Wide (2 Lapis)" },
-    { label: "U", title: "Up" },
-    { label: "U'", title: "Up Prime" },
-    { label: "Uw", title: "Up Wide (2 Lapis)" },
-    { label: "Uw'", title: "Up Wide Prime" },
-    { label: "F", title: "Front" },
-    { label: "F'", title: "Front Prime" },
-    { label: "Fw", title: "Front Wide" },
-    { label: "D", title: "Down" },
-    { label: "B", title: "Back" },
-    { label: "M", title: "Middle Slice" },
-    { label: "x", title: "Rotate Cube X" },
-    { label: "y", title: "Rotate Cube Y" }
-  ];
+  // Difficulty badge styling
+  const difficultyConfig = {
+    beginner: { label: 'Pemula', badgeClass: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30', dot: 'bg-emerald-400' },
+    intermediate: { label: 'Menengah', badgeClass: 'bg-amber-500/20 text-amber-300 border-amber-500/30', dot: 'bg-amber-400' },
+    advanced: { label: 'Mahir', badgeClass: 'bg-orange-500/20 text-orange-300 border-orange-500/30', dot: 'bg-orange-400' },
+    expert: { label: 'Master', badgeClass: 'bg-rose-500/20 text-rose-300 border-rose-500/30', dot: 'bg-rose-400' }
+  };
+
+  const diff = difficultyConfig[puzzle?.difficulty] || difficultyConfig.beginner;
+
+  // Dynamic quick-move buttons from active puzzle notation
+  const quickMoveButtons = useMemo(() => {
+    if (puzzle?.notation) {
+      const keys = Object.keys(puzzle.notation).filter(
+        k => typeof puzzle.notation[k] === 'object' && puzzle.notation[k]?.name
+      );
+      if (keys.length > 0) {
+        return keys.slice(0, 18).map(k => ({
+          label: k,
+          title: puzzle.notation[k].name || k
+        }));
+      }
+    }
+    // Default fallback moves
+    return [
+      { label: "R", title: "Right" },
+      { label: "R'", title: "Right Prime" },
+      { label: "L", title: "Left" },
+      { label: "L'", title: "Left Prime" },
+      { label: "U", title: "Up" },
+      { label: "U'", title: "Up Prime" },
+      { label: "F", title: "Front" },
+      { label: "F'", title: "Front Prime" },
+      { label: "D", title: "Down" },
+      { label: "B", title: "Back" },
+      { label: "M", title: "Middle Slice" },
+      { label: "x", title: "Rotate Cube X" },
+      { label: "y", title: "Rotate Cube Y" }
+    ];
+  }, [puzzle]);
 
   return (
-    <header className="bg-slate-900/90 backdrop-blur-xl border-b border-slate-800/80 px-4 py-2.5 flex flex-col gap-2 z-30 shadow-md">
+    <header className="bg-slate-900/95 backdrop-blur-xl border-b border-slate-800/80 px-4 py-2.5 flex flex-col gap-2 z-30 shadow-md">
       <div className="flex items-center justify-between gap-3">
-        {/* Brand & Title */}
+        {/* Brand, Active Puzzle Title, & Ganti Puzzle Trigger */}
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 via-sky-500 to-emerald-400 p-0.5 shadow-lg shadow-sky-500/20">
+          <button
+            onClick={onOpenPuzzleSelector}
+            className="w-9 h-9 rounded-xl bg-gradient-to-tr from-sky-500 via-blue-600 to-emerald-400 p-0.5 shadow-lg shadow-sky-500/20 hover:scale-105 transition-transform"
+            title="Klik untuk memilih dari 10 varian Twisty Puzzle WCA"
+          >
             <div className="w-full h-full bg-slate-950 rounded-[10px] flex items-center justify-center">
-              <Box className="w-5 h-5 text-sky-400 animate-pulse-subtle" />
+              <Box className="w-5 h-5 text-sky-400" />
             </div>
-          </div>
+          </button>
+
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-black tracking-wide bg-gradient-to-r from-white via-slate-100 to-sky-300 bg-clip-text text-transparent">
-                Rubik 5x5 Solver 3D
+              <h1
+                onClick={onOpenPuzzleSelector}
+                className="text-base font-black tracking-wide bg-gradient-to-r from-white via-slate-100 to-sky-300 bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity"
+                title="Klik untuk mengganti puzzle"
+              >
+                {puzzle?.name || "Rubik's Twisty Puzzle 3D"}
               </h1>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-400 border border-sky-500/30 uppercase tracking-wider">
-                Professor's Cube
+              <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border uppercase tracking-wider flex items-center gap-1 ${diff.badgeClass}`}>
+                <span className={`w-1.5 h-1.5 rounded-full ${diff.dot}`} />
+                <span>{puzzle?.difficultyLabel || diff.label}</span>
               </span>
             </div>
             <p className="text-[11px] text-slate-400 hidden sm:block">
-              Panduan Interaktif Metode Reduksi & Kasus Parity
+              {puzzle?.description || "Platform Pembelajaran Visual 3D Universal untuk Seluruh Varian WCA"}
             </p>
           </div>
         </div>
 
         {/* Action Controls */}
         <div className="flex items-center gap-2">
+          {/* Prominent Ganti Puzzle Button */}
+          <button
+            onClick={onOpenPuzzleSelector}
+            className="px-3 py-1.5 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-md shadow-sky-500/20 transition-all active:scale-95"
+            title="Buka Selektor 10 Puzzle WCA"
+          >
+            <Layers className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Ganti Puzzle</span>
+          </button>
+
           {/* Mode Toggle (Amati vs Putar) */}
           <button
             onClick={onToggleInspectMode}
@@ -69,17 +110,17 @@ export default function Header({
                 ? 'bg-sky-500/10 text-sky-400 border-sky-500/30 hover:bg-sky-500/20'
                 : 'bg-amber-500/10 text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
             }`}
-            title={isInspectMode ? 'Klik untuk berpindah ke Mode Putar Layer' : 'Klik untuk berpindah ke Mode Amati 360°'}
+            title={isInspectMode ? 'Klik untuk berpindah ke Mode Putar Layer' : 'Klik untuk berpindah ke Mode Amati Orbit 360°'}
           >
             {isInspectMode ? (
               <>
                 <Eye className="w-4 h-4" />
-                <span className="hidden md:inline">Mode: Amati (Orbit)</span>
+                <span className="hidden md:inline">Mode: Amati</span>
               </>
             ) : (
               <>
                 <RotateCw className="w-4 h-4" />
-                <span className="hidden md:inline">Mode: Putar Layer</span>
+                <span className="hidden md:inline">Mode: Putar</span>
               </>
             )}
           </button>
@@ -103,7 +144,7 @@ export default function Header({
           <button
             onClick={onScramble}
             className="px-3 py-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700/80 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
-            title="Acak Kubus 5x5 (Scramble WCA)"
+            title="Acak Puzzle (Scramble WCA)"
           >
             <Shuffle className="w-3.5 h-3.5 text-amber-400" />
             <span className="hidden sm:inline">Acak</span>
@@ -118,21 +159,21 @@ export default function Header({
             <RotateCcw className="w-4 h-4" />
           </button>
 
-          {/* Custom Layout Button */}
+          {/* Custom Layout / Presets Button */}
           <button
             onClick={onOpenCustomLayout}
             className="px-3 py-1.5 bg-gradient-to-r from-sky-500/20 to-blue-600/20 hover:from-sky-500/30 hover:to-blue-600/30 text-sky-300 border border-sky-500/40 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
-            title="Sesuaikan susunan warna atau pilih kasus macet"
+            title="Sesuaikan susunan warna atau pilih preset kasus macet"
           >
             <Palette className="w-4 h-4 text-sky-400" />
-            <span className="hidden lg:inline">Sesuaikan Layout</span>
+            <span className="hidden lg:inline">Layout & Preset</span>
           </button>
 
           {/* Notation Help */}
           <button
             onClick={onOpenNotationModal}
             className="p-2 bg-slate-850 hover:bg-slate-800 text-slate-300 border border-slate-700/80 rounded-xl transition-colors shadow-sm"
-            title="Buka Kamus Notasi Rubik"
+            title="Buka Kamus Notasi Puzzle"
           >
             <HelpCircle className="w-4 h-4" />
           </button>
@@ -160,4 +201,3 @@ export default function Header({
     </header>
   );
 }
-

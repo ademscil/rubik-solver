@@ -1,68 +1,9 @@
-import React, { useEffect, useRef, useState, useCallback, useImperativeHandle, forwardRef } from 'react';
+import React, { useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from 'react';
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
-import { getMoveInfo, getInverseMove } from '../cube/rubikNotation';
-import { CUBE_COLORS } from '../cube/presets';
-
-// Dimensi dan ukuran
-const CUBIE_SIZE = 0.94;
-const SPACING = 1.0;
-const HALF_SIZE = 2; // Koord: -2, -1, 0, 1, 2
-
-// Warna standar
-const FACE_COLORS = {
-  R: CUBE_COLORS.R.hex, // +X (Merah)
-  L: CUBE_COLORS.L.hex, // -X (Oranye)
-  U: CUBE_COLORS.U.hex, // +Y (Putih)
-  D: CUBE_COLORS.D.hex, // -Y (Kuning)
-  F: CUBE_COLORS.F.hex, // +Z (Hijau)
-  B: CUBE_COLORS.B.hex, // -Z (Biru)
-  INTERNAL: CUBE_COLORS.INTERNAL.hex // Body plastik gelap
-};
-
-/**
- * Buat tekstur stiker berstempel glossy dengan sudut rounded halus
- */
-function createStickerTexture(hexColor, isHighlighted = false) {
-  const canvas = document.createElement('canvas');
-  canvas.width = 128;
-  canvas.height = 128;
-  const ctx = canvas.getContext('2d');
-
-  // Background plastik hitam tepi
-  ctx.fillStyle = '#121215';
-  ctx.fillRect(0, 0, 128, 128);
-
-  // Stiker rounded di tengah
-  const pad = 7;
-  const rad = 14;
-  const w = 128 - pad * 2;
-  const h = 128 - pad * 2;
-
-  ctx.beginPath();
-  ctx.roundRect(pad, pad, w, h, rad);
-  ctx.fillStyle = hexColor;
-  ctx.fill();
-
-  // Efek kilauan / gloss subtle
-  const grad = ctx.createLinearGradient(pad, pad, pad + w, pad + h);
-  grad.addColorStop(0, 'rgba(255, 255, 255, 0.28)');
-  grad.addColorStop(0.35, 'rgba(255, 255, 255, 0.08)');
-  grad.addColorStop(0.65, 'rgba(0, 0, 0, 0.02)');
-  grad.addColorStop(1, 'rgba(0, 0, 0, 0.22)');
-  ctx.fillStyle = grad;
-  ctx.fill();
-
-  if (isHighlighted) {
-    ctx.lineWidth = 6;
-    ctx.strokeStyle = '#38bdf8'; // Glowing cyan
-    ctx.stroke();
-  }
-
-  const texture = new THREE.CanvasTexture(canvas);
-  texture.colorSpace = THREE.SRGBColorSpace;
-  return texture;
-}
+import { CameraManager } from '../engine/CameraManager';
+import { disposeHierarchy, teardownViewer } from '../engine/DisposalPipeline';
+import { applyNetStateToNxN } from '../puzzles/nxn/netLayout.js';
 
 const RubikViewer = forwardRef(function RubikViewer({
   isInspectMode = true,
@@ -71,25 +12,61 @@ const RubikViewer = forwardRef(function RubikViewer({
   onMoveComplete,
   editorActive = false,
   selectedPaintColor = '#FFFFFF',
-  onStickerClick
+  onStickerClick,
+  puzzle
 }, ref) {
   const mountRef = useRef(null);
   const sceneRef = useRef(null);
   const rendererRef = useRef(null);
   const cameraRef = useRef(null);
   const controlsRef = useRef(null);
-  const cubiesRef = useRef([]);
+  const cameraManagerRef = useRef(null);
+  const activeModelRef = useRef(null);
   const isAnimatingRef = useRef(false);
   const moveQueueRef = useRef([]);
   const pivotRef = useRef(new THREE.Group());
+  const executeMoveRef = useRef(null);
 
-  // Inisialisasi Scene Three.js
+  // Build active puzzle model
+  const buildModel = useCallback(() => {
+    const scene = sceneRef.current;
+    if (!scene || !puzzle || typeof puzzle.buildModel !== 'function') return;
+
+    // Clear any remaining children in pivotRef before disposing active model
+    if (pivotRef.current && pivotRef.current.children.length > 0) {
+      while (pivotRef.current.children.length > 0) {
+        const child = pivotRef.current.children[0];
+        pivotRef.current.remove(child);
+        disposeHierarchy(child, { disposeSharedTextures: false });
+      }
+    }
+
+    // 1. Dispose existing model to ensure zero WebGL memory leaks
+    if (activeModelRef.current) {
+      disposeHierarchy(activeModelRef.current, { disposeSharedTextures: false });
+      scene.remove(activeModelRef.current);
+      activeModelRef.current = null;
+    }
+
+    // 2. Build new 3D model for the active puzzle
+    const model = puzzle.buildModel();
+    activeModelRef.current = model;
+    scene.add(model);
+
+    // 3. Auto-fit camera using puzzle's default distance
+    if (cameraManagerRef.current && puzzle.defaultCameraDistance) {
+      cameraManagerRef.current.setDistance(puzzle.defaultCameraDistance);
+      cameraManagerRef.current.resetCamera('isometric');
+    }
+  }, [puzzle]);
+
+  // Initialize Three.js Scene
   useEffect(() => {
     const currentMount = mountRef.current;
     if (!currentMount) return;
 
-    const width = currentMount.clientWidth;
-    const height = currentMount.clientHeight;
+    const width = currentMount.clientWidth || 800;
+    const height = currentMount.clientHeight || 600;
 
     // 1. Scene
     const scene = new THREE.Scene();
@@ -98,13 +75,14 @@ const RubikViewer = forwardRef(function RubikViewer({
 
     // 2. Camera
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    camera.position.set(7.5, 6.5, 9.5);
+    const initialDistance = puzzle?.defaultCameraDistance || 8.0;
+    camera.position.set(initialDistance * 0.7, initialDistance * 0.6, initialDistance * 0.9);
     cameraRef.current = camera;
 
     // 3. Renderer
     const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'high-performance' });
     renderer.setSize(width, height);
-    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
     renderer.toneMapping = THREE.ACESFilmicToneMapping;
     renderer.toneMappingExposure = 1.1;
     currentMount.appendChild(renderer.domElement);
@@ -130,16 +108,20 @@ const RubikViewer = forwardRef(function RubikViewer({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.minDistance = 5;
-    controls.maxDistance = 25;
+    controls.minDistance = puzzle?.minCameraDistance || 4.0;
+    controls.maxDistance = puzzle?.maxCameraDistance || 30.0;
     controls.enablePan = false;
     controlsRef.current = controls;
 
-    // Tambah pivot group ke scene
+    // Camera preset controller
+    const cameraManager = new CameraManager(camera, controls, initialDistance);
+    cameraManagerRef.current = cameraManager;
+
+    // Pivot group for intermediate rotations
     scene.add(pivotRef.current);
 
-    // 6. Buat 125 Cubies (5x5x5)
-    buildCube();
+    // 6. Build model if puzzle definition is already available
+    buildModel();
 
     // 7. Animation Loop
     let animId;
@@ -162,264 +144,133 @@ const RubikViewer = forwardRef(function RubikViewer({
     window.addEventListener('resize', handleResize);
 
     return () => {
-      cancelAnimationFrame(animId);
       window.removeEventListener('resize', handleResize);
-      controls.dispose();
-      renderer.dispose();
-      if (currentMount.contains(renderer.domElement)) {
-        currentMount.removeChild(renderer.domElement);
-      }
+      cameraManagerRef.current?.dispose();
+      teardownViewer({
+        scene: sceneRef.current,
+        renderer: rendererRef.current,
+        controls: controlsRef.current,
+        animId,
+        resizeHandler: handleResize,
+        options: { disposeSharedTextures: false, removeDomElement: true }
+      });
     };
-  }, []);
+  }, []); // Run once on mount
 
-  // Update enable/disable controls berdasarkan mode amati
+  // When puzzle changes, rebuild the model and reconfigure camera
+  useEffect(() => {
+    if (sceneRef.current && puzzle) {
+      buildModel();
+      if (controlsRef.current && puzzle.minCameraDistance && puzzle.maxCameraDistance) {
+        controlsRef.current.minDistance = puzzle.minCameraDistance;
+        controlsRef.current.maxDistance = puzzle.maxCameraDistance;
+      }
+    }
+  }, [puzzle, buildModel]);
+
+  // Update OrbitControls enabled state
   useEffect(() => {
     if (controlsRef.current) {
       controlsRef.current.enabled = isInspectMode;
     }
   }, [isInspectMode]);
 
-  // Fungsi membangun kubus 5x5
-  const buildCube = useCallback(() => {
-    const scene = sceneRef.current;
-    if (!scene) return;
-
-    // Bersihkan cubies lama jika ada
-    cubiesRef.current.forEach(c => scene.remove(c));
-    cubiesRef.current = [];
-
-    const geom = new THREE.BoxGeometry(CUBIE_SIZE, CUBIE_SIZE, CUBIE_SIZE);
-
-    for (let x = -HALF_SIZE; x <= HALF_SIZE; x++) {
-      for (let y = -HALF_SIZE; y <= HALF_SIZE; y++) {
-        for (let z = -HALF_SIZE; z <= HALF_SIZE; z++) {
-          // Lewati cubie bagian dalam murni yang tidak terlihat sama sekali (|x|<2 && |y|<2 && |z|<2)
-          const isInternal = Math.abs(x) < 2 && Math.abs(y) < 2 && Math.abs(z) < 2;
-          if (isInternal) continue;
-
-          // 6 material untuk 6 sisi box: [+X (R), -X (L), +Y (U), -Y (D), +Z (F), -Z (B)]
-          const materials = [
-            // +X: Right
-            new THREE.MeshStandardMaterial({
-              map: x === HALF_SIZE ? createStickerTexture(FACE_COLORS.R) : null,
-              color: x === HALF_SIZE ? 0xffffff : FACE_COLORS.INTERNAL,
-              roughness: 0.3,
-              metalness: 0.1
-            }),
-            // -X: Left
-            new THREE.MeshStandardMaterial({
-              map: x === -HALF_SIZE ? createStickerTexture(FACE_COLORS.L) : null,
-              color: x === -HALF_SIZE ? 0xffffff : FACE_COLORS.INTERNAL,
-              roughness: 0.3,
-              metalness: 0.1
-            }),
-            // +Y: Up
-            new THREE.MeshStandardMaterial({
-              map: y === HALF_SIZE ? createStickerTexture(FACE_COLORS.U) : null,
-              color: y === HALF_SIZE ? 0xffffff : FACE_COLORS.INTERNAL,
-              roughness: 0.3,
-              metalness: 0.1
-            }),
-            // -Y: Down
-            new THREE.MeshStandardMaterial({
-              map: y === -HALF_SIZE ? createStickerTexture(FACE_COLORS.D) : null,
-              color: y === -HALF_SIZE ? 0xffffff : FACE_COLORS.INTERNAL,
-              roughness: 0.3,
-              metalness: 0.1
-            }),
-            // +Z: Front
-            new THREE.MeshStandardMaterial({
-              map: z === HALF_SIZE ? createStickerTexture(FACE_COLORS.F) : null,
-              color: z === HALF_SIZE ? 0xffffff : FACE_COLORS.INTERNAL,
-              roughness: 0.3,
-              metalness: 0.1
-            }),
-            // -Z: Back
-            new THREE.MeshStandardMaterial({
-              map: z === -HALF_SIZE ? createStickerTexture(FACE_COLORS.B) : null,
-              color: z === -HALF_SIZE ? 0xffffff : FACE_COLORS.INTERNAL,
-              roughness: 0.3,
-              metalness: 0.1
-            })
-          ];
-
-          const mesh = new THREE.Mesh(geom, materials);
-          mesh.position.set(x * SPACING, y * SPACING, z * SPACING);
-          mesh.userData = {
-            gridX: x,
-            gridY: y,
-            gridZ: z,
-            initialX: x,
-            initialY: y,
-            initialZ: z
-          };
-
-          scene.add(mesh);
-          cubiesRef.current.push(mesh);
-        }
-      }
+  // Reset Camera Callback
+  const resetCamera = useCallback((view, options) => {
+    if (cameraManagerRef.current) {
+      cameraManagerRef.current.resetCamera(view, options);
     }
   }, []);
 
-  // Animasi Pemutaran Layer
+  // Animate Move Execution
   const executeMove = useCallback((moveStr, onComplete) => {
+    if (!moveStr || !activeModelRef.current || !puzzle) {
+      if (onComplete) onComplete(moveStr);
+      if (onMoveComplete) onMoveComplete(moveStr);
+      return;
+    }
+
     if (isAnimatingRef.current) {
       moveQueueRef.current.push({ moveStr, onComplete });
       return;
     }
 
-    const moveInfo = getMoveInfo(moveStr);
-    const { axis, layers, dir } = moveInfo;
-    const scene = sceneRef.current;
-    const pivot = pivotRef.current;
-    if (!scene || !pivot) return;
-
     isAnimatingRef.current = true;
+    const duration = Math.max(80, Math.round(240 / animationSpeed));
 
-    // Reset pivot
-    pivot.rotation.set(0, 0, 0);
-    pivot.position.set(0, 0, 0);
+    const handleDone = () => {
+      isAnimatingRef.current = false;
+      if (onComplete) onComplete(moveStr);
+      if (onMoveComplete) onMoveComplete(moveStr);
 
-    // Cari cubie yang berada di layer yang bersangkutan
-    const activeCubies = [];
-    cubiesRef.current.forEach(cubie => {
-      let val = 0;
-      if (axis === 'x') val = cubie.userData.gridX;
-      else if (axis === 'y') val = cubie.userData.gridY;
-      else if (axis === 'z') val = cubie.userData.gridZ;
-
-      if (layers.includes(val)) {
-        activeCubies.push(cubie);
-      }
-    });
-
-    // Lampirkan cubie ke pivot
-    activeCubies.forEach(cubie => {
-      pivot.attach(cubie);
-    });
-
-    // Target sudut rotasi
-    // dir: -1 atau 1 (90 deg), -2 atau 2 (180 deg)
-    const targetAngle = (Math.PI / 2) * dir;
-    const duration = Math.max(120, 320 / animationSpeed); // ms
-    const startTime = performance.now();
-
-    const animateRotation = (now) => {
-      const elapsed = now - startTime;
-      const progress = Math.min(elapsed / duration, 1);
-
-      // Smooth easing (cubic in/out)
-      const ease = progress < 0.5
-        ? 4 * progress * progress * progress
-        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
-
-      pivot.rotation[axis] = targetAngle * ease;
-
-      if (progress < 1) {
-        requestAnimationFrame(animateRotation);
-      } else {
-        // Rotasi selesai: bake rotasi ke cubies
-        pivot.rotation[axis] = targetAngle;
-        pivot.updateMatrixWorld();
-
-        activeCubies.forEach(cubie => {
-          scene.attach(cubie);
-          // Update koordinat grid logis
-          cubie.userData.gridX = Math.round(cubie.position.x / SPACING);
-          cubie.userData.gridY = Math.round(cubie.position.y / SPACING);
-          cubie.userData.gridZ = Math.round(cubie.position.z / SPACING);
-        });
-
-        pivot.rotation.set(0, 0, 0);
-        isAnimatingRef.current = false;
-
-        if (onComplete) onComplete(moveStr);
-        if (onMoveComplete) onMoveComplete(moveStr);
-
-        // Jika ada antrian berikutnya, jalankan
-        if (moveQueueRef.current.length > 0) {
-          const next = moveQueueRef.current.shift();
-          executeMove(next.moveStr, next.onComplete);
-        }
+      // Process next queued move if any
+      if (moveQueueRef.current.length > 0) {
+        const next = moveQueueRef.current.shift();
+        executeMoveRef.current?.(next.moveStr, next.onComplete);
       }
     };
 
-    requestAnimationFrame(animateRotation);
-  }, [animationSpeed, onMoveComplete]);
+    if (typeof puzzle.animateMove === 'function') {
+      try {
+        puzzle.animateMove(moveStr, activeModelRef.current, handleDone, duration, pivotRef.current);
+      } catch (err) {
+        console.warn(`[RubikViewer] Error executing move '${moveStr}':`, err);
+        isAnimatingRef.current = false;
+        if (onComplete) onComplete(moveStr);
+        if (onMoveComplete) onMoveComplete(moveStr);
+        if (moveQueueRef.current.length > 0) {
+          const next = moveQueueRef.current.shift();
+          executeMoveRef.current?.(next.moveStr, next.onComplete);
+        }
+      }
+    } else {
+      handleDone();
+    }
+  }, [puzzle, animationSpeed, onMoveComplete]);
 
+  useEffect(() => {
+    executeMoveRef.current = executeMove;
+  }, [executeMove]);
 
-  // Raycaster untuk klik stiker (mode editor & mode putar)
-  const handlePointerDown = (event) => {
-    if (!editorActive && isInspectMode) return; // Pada inspect mode murni, biarkan OrbitControls bekerja
+  // Highlight Mode effect for puzzle pieces
+  useEffect(() => {
+    if (!activeModelRef.current) return;
+    const isNxN = !!puzzle?.order;
 
-    const rect = mountRef.current.getBoundingClientRect();
-    const mouse = new THREE.Vector2(
-      ((event.clientX - rect.left) / rect.width) * 2 - 1,
-      -((event.clientY - rect.top) / rect.height) * 2 + 1
-    );
+    activeModelRef.current.traverse((child) => {
+      if (child.isMesh && child.userData) {
+        let shouldHighlight = true;
+        if (isNxN && highlightMode !== 'all') {
+          const half = (puzzle.order - 1) / 2;
+          const pos = child.userData.gridPos || child.position;
+          const gx = Math.round(pos.x);
+          const gy = Math.round(pos.y);
+          const gz = Math.round(pos.z);
 
-    const raycaster = new THREE.Raycaster();
-    raycaster.setFromCamera(mouse, cameraRef.current);
-    const intersects = raycaster.intersectObjects(cubiesRef.current);
+          if (highlightMode === 'centers') {
+            const isCenter =
+              (Math.abs(gx) === half && Math.abs(gy) < half && Math.abs(gz) < half) ||
+              (Math.abs(gy) === half && Math.abs(gx) < half && Math.abs(gz) < half) ||
+              (Math.abs(gz) === half && Math.abs(gx) < half && Math.abs(gy) < half);
+            shouldHighlight = isCenter;
+          } else if (highlightMode === 'edges') {
+            const countHalf = [Math.abs(gx) === half, Math.abs(gy) === half, Math.abs(gz) === half].filter(Boolean).length;
+            shouldHighlight = countHalf === 2;
+          } else if (highlightMode === 'parity') {
+            shouldHighlight = (gy === half && gz === half) || (gy === half && gz === -half);
+          }
+        }
 
-    if (intersects.length > 0) {
-      const hit = intersects[0];
-      const cubie = hit.object;
-      const faceIndex = Math.floor(hit.faceIndex / 2); // 6 faces -> 12 triangles
-
-      if (editorActive && onStickerClick) {
-        // Ganti warna stiker yang diklik
-        const newTexture = createStickerTexture(selectedPaintColor);
-        cubie.material[faceIndex].map = newTexture;
-        cubie.material[faceIndex].needsUpdate = true;
-        onStickerClick({
-          gridX: cubie.userData.gridX,
-          gridY: cubie.userData.gridY,
-          gridZ: cubie.userData.gridZ,
-          faceIndex,
-          color: selectedPaintColor
+        const materials = Array.isArray(child.material) ? child.material : [child.material];
+        materials.forEach((mat) => {
+          if (mat && typeof mat === 'object') {
+            mat.opacity = shouldHighlight ? 1.0 : 0.28;
+            mat.transparent = !shouldHighlight;
+          }
         });
       }
-    }
-  };
-
-  // Highlight mode effect
-  useEffect(() => {
-    cubiesRef.current.forEach(cubie => {
-      const { gridX, gridY, gridZ } = cubie.userData;
-      let shouldHighlight = true;
-
-      if (highlightMode === 'centers') {
-        // Center pieces on any face (at least one coord is +/-2 and the other two are in {-1, 0, 1})
-        const isCenter =
-          (Math.abs(gridX) === 2 && Math.abs(gridY) <= 1 && Math.abs(gridZ) <= 1) ||
-          (Math.abs(gridY) === 2 && Math.abs(gridX) <= 1 && Math.abs(gridZ) <= 1) ||
-          (Math.abs(gridZ) === 2 && Math.abs(gridX) <= 1 && Math.abs(gridY) <= 1);
-        shouldHighlight = isCenter;
-      } else if (highlightMode === 'edges') {
-        // Edge pieces (two coords are non-zero, one is +/-2, the other is +/-2 or +/-1, exactly one is 0 or inner)
-        const nonZeros = [gridX, gridY, gridZ].filter(v => Math.abs(v) === 2).length;
-        shouldHighlight = nonZeros === 2;
-      } else if (highlightMode === 'parity') {
-        // Parity target: Top-Front or Top-Back edges
-        const isUF = gridY === 2 && gridZ === 2;
-        const isUB = gridY === 2 && gridZ === -2;
-        shouldHighlight = isUF || isUB;
-      }
-
-      // Atur opacity/brightness
-      cubie.traverse(child => {
-        if (child.isMesh && Array.isArray(child.material)) {
-          child.material.forEach(mat => {
-            if (mat) {
-              mat.opacity = shouldHighlight ? 1.0 : 0.28;
-              mat.transparent = !shouldHighlight;
-            }
-          });
-        }
-      });
     });
-  }, [highlightMode]);
+  }, [highlightMode, puzzle]);
 
   // Expose methods to parent via ref
   useImperativeHandle(ref, () => ({
@@ -427,48 +278,34 @@ const RubikViewer = forwardRef(function RubikViewer({
       executeMove(moveStr, onComplete);
     },
     resetCube: () => {
-      buildCube();
+      moveQueueRef.current = [];
+      isAnimatingRef.current = false;
+      if (pivotRef.current && pivotRef.current.children.length > 0) {
+        while (pivotRef.current.children.length > 0) {
+          const child = pivotRef.current.children[0];
+          pivotRef.current.remove(child);
+          disposeHierarchy(child, { disposeSharedTextures: false });
+        }
+      }
+      buildModel();
+      if (puzzle && activeModelRef.current && typeof puzzle.resetModel === 'function') {
+        puzzle.resetModel(activeModelRef.current);
+      }
     },
-    resetCamera: (view) => {
-      resetCamera(view);
+    resetCamera: (view, options) => {
+      resetCamera(view, options);
     },
     isBusy: () => isAnimatingRef.current || moveQueueRef.current.length > 0,
     loadFullLayout: (facesData) => {
-      // facesData = { U: [...25 hex], D: [...25 hex], F: [...25 hex], B: [...25 hex], L: [...25 hex], R: [...25 hex] }
-      if (!facesData) return;
-      const getCoord = (face, r, c) => {
-        if (face === 'U') return { x: c - 2, y: 2, z: r - 2, matIdx: 2 };
-        if (face === 'D') return { x: c - 2, y: -2, z: 2 - r, matIdx: 3 };
-        if (face === 'F') return { x: c - 2, y: 2 - r, z: 2, matIdx: 4 };
-        if (face === 'B') return { x: 2 - c, y: 2 - r, z: -2, matIdx: 5 };
-        if (face === 'L') return { x: -2, y: 2 - r, z: c - 2, matIdx: 1 };
-        if (face === 'R') return { x: 2, y: 2 - r, z: 2 - c, matIdx: 0 };
-      };
-
-      Object.entries(facesData).forEach(([faceKey, colors]) => {
-        if (!Array.isArray(colors)) return;
-        for (let r = 0; r < 5; r++) {
-          for (let c = 0; c < 5; c++) {
-            const idx = r * 5 + c;
-            const colorHex = colors[idx];
-            if (!colorHex) continue;
-
-            const { x, y, z, matIdx } = getCoord(faceKey, r, c);
-            const cubie = cubiesRef.current.find(
-              cb => cb.userData.gridX === x && cb.userData.gridY === y && cb.userData.gridZ === z
-            );
-            if (cubie && cubie.material[matIdx]) {
-              cubie.material[matIdx].map = createStickerTexture(colorHex);
-              cubie.material[matIdx].needsUpdate = true;
-            }
-          }
-        }
-      });
-    }
+      if (puzzle?.order && activeModelRef.current) {
+        applyNetStateToNxN(activeModelRef.current, facesData, puzzle.order);
+      }
+    },
+    getModel: () => activeModelRef.current
   }));
 
   return (
-    <div className="relative w-full h-full select-none overflow-hidden" ref={mountRef} onPointerDown={handlePointerDown}>
+    <div className="relative w-full h-full select-none overflow-hidden" ref={mountRef}>
       {/* Overlay Tombol Kamera Cepat & Helper */}
       <div className="absolute top-4 left-4 z-10 flex flex-wrap items-center gap-2 pointer-events-auto">
         <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-xl p-1 flex items-center shadow-lg">
@@ -503,18 +340,19 @@ const RubikViewer = forwardRef(function RubikViewer({
         <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-xl px-3 py-1.5 flex items-center gap-2 shadow-lg">
           <div className={`w-2 h-2 rounded-full ${isInspectMode ? 'bg-sky-400 animate-pulse' : 'bg-amber-400'}`} />
           <span className="text-xs font-medium text-slate-300">
-            {isInspectMode ? 'Mode Amati (Orbit 360°)' : 'Mode Putar Layer'}
+            {isInspectMode ? 'Mode Amati (Orbit 360°)' : 'Mode Putar'}
           </span>
         </div>
       </div>
 
-      {/* Watermark Logo 5x5 Minimalis di Sudut Bawah */}
+      {/* Watermark Logo Dinamis Puzzle di Sudut Bawah */}
       <div className="absolute bottom-4 left-4 z-10 pointer-events-none opacity-40 hover:opacity-100 transition-opacity">
-        <span className="text-xs font-mono font-bold tracking-widest text-slate-500 uppercase">5x5 Professor's Cube 3D</span>
+        <span className="text-xs font-mono font-bold tracking-widest text-slate-500 uppercase">
+          {puzzle?.name || "Twisty Puzzle 3D"}
+        </span>
       </div>
     </div>
   );
 });
 
 export default RubikViewer;
-
