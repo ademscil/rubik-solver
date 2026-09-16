@@ -121,12 +121,12 @@ export function animatePyraminxMove(modelGroup, moveStr, onComplete, duration = 
 
   const moveInfo = parsePyraminxMove(moveStr);
   const { axis, angle, isTip } = moveInfo;
-  const threshold = isTip ? 0.55 * R : 0.05 * R;
+  const threshold = isTip ? 0.70 * R : 0.30 * R;
 
-  // Find active stickers and meshes belonging to this vertex / layer
+  // Find active solid facet groups belonging to this vertex / layer
   const activeMeshes = [];
-  modelGroup.traverse((child) => {
-    if (child.isMesh && child.name && child.name.startsWith('sticker-')) {
+  modelGroup.children.forEach((child) => {
+    if (child.name && (child.name.startsWith('facet-') || child.userData?.isPyraminxFacet)) {
       const box = new THREE.Box3().setFromObject(child);
       const worldCenter = new THREE.Vector3();
       box.getCenter(worldCenter);
@@ -136,6 +136,21 @@ export function animatePyraminxMove(modelGroup, moveStr, onComplete, duration = 
       }
     }
   });
+
+  // Fallback for direct sticker meshes
+  if (activeMeshes.length === 0) {
+    modelGroup.traverse((child) => {
+      if (child.isMesh && child.name && child.name.startsWith('sticker-')) {
+        const box = new THREE.Box3().setFromObject(child);
+        const worldCenter = new THREE.Vector3();
+        box.getCenter(worldCenter);
+        const localCenter = modelGroup.worldToLocal(worldCenter.clone());
+        if (localCenter.dot(axis) > threshold) {
+          activeMeshes.push(child);
+        }
+      }
+    });
+  }
 
   if (activeMeshes.length === 0) {
     onComplete?.();

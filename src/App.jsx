@@ -12,9 +12,7 @@ import { puzzleRegistry } from './puzzles/registry.js';
 import { parseAlgorithm as defaultParseAlg, getInverseMove as defaultGetInverse } from './cube/rubikNotation.js';
 import { generateScramble as defaultScramble } from './cube/presets.js';
 import {
-  generatePedagogicalLBLSolution,
-  generatePedagogical5x5Solution,
-  generatePedagogicalMegaminxSolution,
+  getPedagogicalSolutionForPuzzle,
   partitionMovesIntoStages
 } from './solvers/solverStages.js';
 import { getActiveStageInfo } from './solvers/lbl3x3Solver.js';
@@ -329,18 +327,8 @@ export default function App() {
     let solutionMoves = [];
     let stages = [];
 
-    if (currentPuzzleId === 'cube-3x3') {
-      const pedagogical = generatePedagogicalLBLSolution();
-      scrambleMoves = pedagogical.scrambleMoves;
-      solutionMoves = pedagogical.solutionMoves;
-      stages = pedagogical.stages;
-    } else if (currentPuzzleId === 'cube-5x5') {
-      const pedagogical = generatePedagogical5x5Solution();
-      scrambleMoves = pedagogical.scrambleMoves;
-      solutionMoves = pedagogical.solutionMoves;
-      stages = pedagogical.stages;
-    } else if (currentPuzzleId === 'megaminx') {
-      const pedagogical = generatePedagogicalMegaminxSolution();
+    const pedagogical = getPedagogicalSolutionForPuzzle(currentPuzzleId);
+    if (pedagogical) {
       scrambleMoves = pedagogical.scrambleMoves;
       solutionMoves = pedagogical.solutionMoves;
       stages = pedagogical.stages;
@@ -349,7 +337,7 @@ export default function App() {
       const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
       const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
 
-      const scrambleLength = currentPuzzle?.category === 'shape' ? 8 : 15;
+      const scrambleLength = currentPuzzle?.category === 'shape' ? 12 : 20;
       const scrambleStr = scrambleFn(scrambleLength);
       scrambleMoves = parseFn(scrambleStr);
       solutionMoves = [...scrambleMoves].reverse().map(m => getInverseFn(m));

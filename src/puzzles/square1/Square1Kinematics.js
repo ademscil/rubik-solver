@@ -93,6 +93,7 @@ export function getInverseMove(token) {
 }
 
 export function generateScramble(length = 15) {
+  if (!length || length <= 0) return '';
   const moves = [];
   for (let i = 0; i < length; i++) {
     const top = Math.floor(Math.random() * 13) - 6;
@@ -246,47 +247,98 @@ export function animateSquare1Move(modelGroup, moveStr, onComplete, duration = 3
     return;
   }
 
-  // parsed.type === 'layer_turn': rotate top and/or bottom layer around Y axis
+  // parsed.type === 'layer_turn': rotate pieces directly via pivot to keep parent coordinate systems identical
   const yAxis = new THREE.Vector3(0, 1, 0);
-  const qTop = new THREE.Quaternion().setFromAxisAngle(yAxis, parsed.topAngle);
-  const qBot = new THREE.Quaternion().setFromAxisAngle(yAxis, parsed.bottomAngle);
+  const doTop = topLayer && parsed.top !== 0;
+  const doBot = botLayer && parsed.bottom !== 0;
 
-  if (typeof requestAnimationFrame === 'undefined' || duration <= 0) {
-    if (topLayer && parsed.top !== 0) {
-      topLayer.quaternion.premultiply(qTop);
-    }
-    if (botLayer && parsed.bottom !== 0) {
-      botLayer.quaternion.premultiply(qBot);
-    }
-    modelGroup.updateMatrixWorld(true);
+  if (!doTop && !doBot) {
     onComplete?.();
     return;
   }
 
-  const startQTop = topLayer ? topLayer.quaternion.clone() : new THREE.Quaternion();
-  const targetQTop = qTop.clone().multiply(startQTop);
-  const startQBot = botLayer ? botLayer.quaternion.clone() : new THREE.Quaternion();
-  const targetQBot = qBot.clone().multiply(startQBot);
+  const pivotTop = new THREE.Group();
+  const pivotBot = new THREE.Group();
+  modelGroup.add(pivotTop);
+  modelGroup.add(pivotBot);
+
+  const topPieces = [];
+  const botPieces = [];
+
+  if (doTop) {
+    // Select all pieces currently in upper layer (y > 0.30)
+    const candidates = [...(topLayer?.children || []), ...(botLayer?.children || [])];
+    candidates.forEach(p => {
+      const box = new THREE.Box3().setFromObject(p);
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      const local = modelGroup.worldToLocal(center);
+      if (local.y > 0.30) {
+        topPieces.push(p);
+      }
+    });
+    topPieces.forEach(p => pivotTop.attach(p));
+  }
+
+  if (doBot) {
+    // Select all pieces currently in lower layer (y < -0.30)
+    const candidates = [...(topLayer?.children || []), ...(botLayer?.children || [])];
+    candidates.forEach(p => {
+      const box = new THREE.Box3().setFromObject(p);
+      const center = new THREE.Vector3();
+      box.getCenter(center);
+      const local = modelGroup.worldToLocal(center);
+      if (local.y < -0.30) {
+        botPieces.push(p);
+      }
+    });
+    botPieces.forEach(p => pivotBot.attach(p));
+  }
+
+  const finalizeLayerTurn = () => {
+    topPieces.forEach(p => topLayer.attach(p));
+    botPieces.forEach(p => botLayer.attach(p));
+    if (pivotTop.parent) pivotTop.parent.remove(pivotTop);
+    if (pivotBot.parent) pivotBot.parent.remove(pivotBot);
+    modelGroup.updateMatrixWorld(true);
+    onComplete?.();
+  };
+
+  if (typeof requestAnimationFrame === 'undefined' || duration <= 0) {
+    if (doTop) pivotTop.rotateOnAxis(yAxis, parsed.topAngle);
+    if (doBot) pivotBot.rotateOnAxis(yAxis, parsed.bottomAngle);
+    finalizeLayerTurn();
+    return;
+  }
+
   const startTime = performance.now();
+  let currTopAngle = 0;
+  let currBotAngle = 0;
 
   const step = (now) => {
-    const t = Math.min((now - startTime) / duration, 1.0);
-    const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1.0);
+    const ease = progress < 0.5
+      ? 4 * progress * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
-    if (topLayer && parsed.top !== 0) {
-      topLayer.quaternion.slerpQuaternions(startQTop, targetQTop, ease);
+    if (doTop) {
+      const target = parsed.topAngle * ease;
+      const delta = target - currTopAngle;
+      pivotTop.rotateOnAxis(yAxis, delta);
+      currTopAngle = target;
     }
-    if (botLayer && parsed.bottom !== 0) {
-      botLayer.quaternion.slerpQuaternions(startQBot, targetQBot, ease);
+    if (doBot) {
+      const target = parsed.bottomAngle * ease;
+      const delta = target - currBotAngle;
+      pivotBot.rotateOnAxis(yAxis, delta);
+      currBotAngle = target;
     }
 
-    if (t < 1.0) {
+    if (progress < 1.0) {
       requestAnimationFrame(step);
     } else {
-      if (topLayer && parsed.top !== 0) topLayer.quaternion.copy(targetQTop);
-      if (botLayer && parsed.bottom !== 0) botLayer.quaternion.copy(targetQBot);
-      modelGroup.updateMatrixWorld(true);
-      onComplete?.();
+      finalizeLayerTurn();
     }
   };
   requestAnimationFrame(step);

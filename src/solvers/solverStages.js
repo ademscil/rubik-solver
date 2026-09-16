@@ -9,12 +9,57 @@
 import { generatePedagogicalLBLSolution } from './lbl3x3Solver.js';
 import { generatePedagogical5x5Solution } from './reduction5x5Solver.js';
 import { generatePedagogicalMegaminxSolution } from './megaminxSolver.js';
+import { generatePedagogical4x4Solution } from './reduction4x4Solver.js';
+import { generatePedagogical2x2Solution } from './ortega2x2Solver.js';
+import { generatePedagogicalPyraminxSolution } from './pyraminxSolver.js';
+import { generatePedagogicalSkewbSolution } from './skewbSolver.js';
+import { generatePedagogicalSquare1Solution } from './square1Solver.js';
+import { generatePedagogical6x6Solution, generatePedagogical7x7Solution } from './bigCubesSolver.js';
 
 export {
   generatePedagogicalLBLSolution,
   generatePedagogical5x5Solution,
-  generatePedagogicalMegaminxSolution
+  generatePedagogicalMegaminxSolution,
+  generatePedagogical4x4Solution,
+  generatePedagogical2x2Solution,
+  generatePedagogicalPyraminxSolution,
+  generatePedagogicalSkewbSolution,
+  generatePedagogicalSquare1Solution,
+  generatePedagogical6x6Solution,
+  generatePedagogical7x7Solution
 };
+
+/**
+ * Returns authentic multi-part pedagogical solution for ANY of the 10 official WCA puzzles
+ * @param {string} puzzleId
+ * @returns {{ scrambleMoves: string[], solutionMoves: string[], stages: any[] } | null}
+ */
+export function getPedagogicalSolutionForPuzzle(puzzleId) {
+  switch (puzzleId) {
+    case 'cube-3x3':
+      return generatePedagogicalLBLSolution();
+    case 'cube-2x2':
+      return generatePedagogical2x2Solution();
+    case 'cube-4x4':
+      return generatePedagogical4x4Solution();
+    case 'cube-5x5':
+      return generatePedagogical5x5Solution();
+    case 'cube-6x6':
+      return generatePedagogical6x6Solution();
+    case 'cube-7x7':
+      return generatePedagogical7x7Solution();
+    case 'megaminx':
+      return generatePedagogicalMegaminxSolution();
+    case 'pyraminx':
+      return generatePedagogicalPyraminxSolution();
+    case 'skewb':
+      return generatePedagogicalSkewbSolution();
+    case 'square1':
+      return generatePedagogicalSquare1Solution();
+    default:
+      return null;
+  }
+}
 
 /**
  * Universal stage templates for all puzzle types

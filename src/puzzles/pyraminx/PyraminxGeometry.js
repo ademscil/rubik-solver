@@ -66,42 +66,47 @@ export function buildPyraminxModel(options = {}) {
     { id: 'D', name: 'Bawah (Merah)', color: COLOR_MAP.D, A: V1, B: V2, C: V3 }    // Bottom
   ];
 
-  // 1. Build solid black plastic body from the 4 faces
-  const bodyGeom = new THREE.BufferGeometry();
-  const bodyPositions = [];
-  const bodyNormals = [];
+  // 1. Build recessed inner core tetrahedron (stays inside, does not clip into moving outer shell)
+  const coreScale = 0.35;
+  const coreGeom = new THREE.BufferGeometry();
+  const corePositions = [];
+  const coreNormals = [];
 
   faces.forEach(f => {
-    const e1 = new THREE.Vector3().subVectors(f.B, f.A);
-    const e2 = new THREE.Vector3().subVectors(f.C, f.A);
+    const cA = f.A.clone().multiplyScalar(coreScale);
+    const cB = f.B.clone().multiplyScalar(coreScale);
+    const cC = f.C.clone().multiplyScalar(coreScale);
+    const e1 = new THREE.Vector3().subVectors(cB, cA);
+    const e2 = new THREE.Vector3().subVectors(cC, cA);
     const norm = new THREE.Vector3().crossVectors(e1, e2).normalize();
 
-    bodyPositions.push(
-      f.A.x, f.A.y, f.A.z,
-      f.B.x, f.B.y, f.B.z,
-      f.C.x, f.C.y, f.C.z
+    corePositions.push(
+      cA.x, cA.y, cA.z,
+      cB.x, cB.y, cB.z,
+      cC.x, cC.y, cC.z
     );
     for (let k = 0; k < 3; k++) {
-      bodyNormals.push(norm.x, norm.y, norm.z);
+      coreNormals.push(norm.x, norm.y, norm.z);
     }
   });
 
-  bodyGeom.setAttribute('position', new THREE.Float32BufferAttribute(bodyPositions, 3));
-  bodyGeom.setAttribute('normal', new THREE.Float32BufferAttribute(bodyNormals, 3));
+  coreGeom.setAttribute('position', new THREE.Float32BufferAttribute(corePositions, 3));
+  coreGeom.setAttribute('normal', new THREE.Float32BufferAttribute(coreNormals, 3));
 
   const bodyMaterial = new THREE.MeshStandardMaterial({
     color: PLASTIC_COLOR,
     roughness: 0.85,
-    metalness: 0.1
+    metalness: 0.1,
+    side: THREE.DoubleSide
   });
-  const bodyMesh = new THREE.Mesh(bodyGeom, bodyMaterial);
-  bodyMesh.name = 'pyraminx-body';
-  group.add(bodyMesh);
+  const coreMesh = new THREE.Mesh(coreGeom, bodyMaterial);
+  coreMesh.name = 'pyraminx-core';
+  group.add(coreMesh);
 
-  // 2. Build exactly 9 triangular stickers per face (6 upward + 3 downward)
+  // 2. Build 9 solid facets per face (each with plastic backing tile + colored vinyl sticker)
   const N = 3; // 3 subdivision rows
   const stickerInset = 0.88; // 12% black border around each sticker
-  const normalOffset = 0.015; // Push slightly above plastic body to avoid z-fighting
+  const normalOffset = 0.012; // Slight elevation above backing tile
 
   faces.forEach(face => {
     const faceGroup = new THREE.Group();
@@ -130,9 +135,25 @@ export function buildPyraminxModel(options = {}) {
     });
 
     const addTriangleSticker = (p1, p2, p3, isUpward, row) => {
+      const facetGroup = new THREE.Group();
+      facetGroup.name = `facet-${face.id}-${stickerIdx}`;
+
       const center = new THREE.Vector3().add(p1).add(p2).add(p3).divideScalar(3);
 
-      // Inset vertices towards triangle center for realistic twisty puzzle borders
+      // A. Black plastic backing tile
+      const baseGeom = new THREE.BufferGeometry();
+      const basePos = new Float32Array([
+        p1.x, p1.y, p1.z,
+        p2.x, p2.y, p2.z,
+        p3.x, p3.y, p3.z
+      ]);
+      baseGeom.setAttribute('position', new THREE.BufferAttribute(basePos, 3));
+      baseGeom.computeVertexNormals();
+      const baseMesh = new THREE.Mesh(baseGeom, bodyMaterial);
+      baseMesh.name = `base-${face.id}-${stickerIdx}`;
+      facetGroup.add(baseMesh);
+
+      // B. Colored sticker inset towards center
       const v1 = new THREE.Vector3().lerpVectors(center, p1, stickerInset).addScaledVector(normal, normalOffset);
       const v2 = new THREE.Vector3().lerpVectors(center, p2, stickerInset).addScaledVector(normal, normalOffset);
       const v3 = new THREE.Vector3().lerpVectors(center, p3, stickerInset).addScaledVector(normal, normalOffset);
@@ -157,7 +178,15 @@ export function buildPyraminxModel(options = {}) {
         center: center.clone()
       };
 
-      faceGroup.add(mesh);
+      facetGroup.add(mesh);
+      facetGroup.userData = {
+        faceId: face.id,
+        stickerIndex: stickerIdx,
+        center: center.clone(),
+        isPyraminxFacet: true
+      };
+
+      group.add(facetGroup);
       stickers.push(mesh);
       stickerIdx++;
     };
@@ -176,8 +205,6 @@ export function buildPyraminxModel(options = {}) {
 
         // Downward triangle: between upward ones (for r < N-1)
         if (r < N - 1 && j < r + 1) {
-          // Downward triangle at (i, j, k) with i+j+k = 1
-          // Only add when valid
           const id = N - 2 - r;
           if (id >= 0) {
             const dp1 = pt(id, j + 1, k + 1);
@@ -189,7 +216,6 @@ export function buildPyraminxModel(options = {}) {
       }
     }
 
-    group.add(faceGroup);
     group.userData.stickers[face.id] = stickers;
   });
 
