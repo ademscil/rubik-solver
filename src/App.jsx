@@ -16,6 +16,7 @@ import {
   partitionMovesIntoStages
 } from './solvers/solverStages.js';
 import { getActiveStageInfo } from './solvers/lbl3x3Solver.js';
+import { solve3x3FromModel } from './solvers/cube3x3StateSolver.js';
 
 export default function App() {
   const cubeRef = useRef(null);
@@ -375,6 +376,21 @@ export default function App() {
   // Step-by-Step Solver: Plays or steps through resolution
   const handleSolveStepByStep = useCallback(() => {
     if (!isScrambled && activeMoves.length === 0) {
+      if (currentPuzzleId === 'cube-3x3' && cubeRef.current?.getModel) {
+        const stateSolution = solve3x3FromModel(cubeRef.current.getModel());
+        if (stateSolution && stateSolution.solutionMoves.length > 0) {
+          activeMovesRef.current = stateSolution.solutionMoves;
+          setActiveMoves(stateSolution.solutionMoves);
+          setSolutionStages(stateSolution.stages);
+          setCurrentMoveIndex(0);
+          currentMoveIndexRef.current = 0;
+          setIsScrambled(true);
+          setIsPlaying(true);
+          isPlayingRef.current = true;
+          cubeRef.current.makeMove(stateSolution.solutionMoves[0], handleMoveComplete);
+          return;
+        }
+      }
       handleScramble();
       return;
     }
@@ -400,7 +416,7 @@ export default function App() {
       setIsPlaying(false);
       isPlayingRef.current = false;
     }
-  }, [activeMoves, currentMoveIndex, isPlaying, isScrambled, handleMoveComplete, handleScramble]);
+  }, [activeMoves, currentMoveIndex, isPlaying, isScrambled, handleMoveComplete, handleScramble, currentPuzzleId]);
 
   // Reset puzzle to solved state
   const handleResetCube = useCallback(() => {
@@ -428,19 +444,35 @@ export default function App() {
     isPlayingRef.current = false;
 
     cubeRef.current.makeMove(moveStr, () => {
-      const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
       setScrambleHistory((prev) => {
         const next = [...prev, moveStr];
         scrambleHistoryRef.current = next;
-        // Compute solution as inverse sequence of all moves performed
-        const solutionMoves = [...next].reverse().map((m) => getInverseFn(m));
-        const stages = partitionMovesIntoStages(currentPuzzleId, solutionMoves);
+
+        // 1. Try algorithmic state-based CFOP/LBL solver first (for 3x3)
+        let solutionMoves = null;
+        let stages = null;
+
+        if (currentPuzzleId === 'cube-3x3' && cubeRef.current?.getModel) {
+          const stateSolution = solve3x3FromModel(cubeRef.current.getModel());
+          if (stateSolution) {
+            solutionMoves = stateSolution.solutionMoves;
+            stages = stateSolution.stages;
+          }
+        }
+
+        // 2. Fallback for other puzzles
+        if (!solutionMoves) {
+          const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
+          solutionMoves = [...next].reverse().map((m) => getInverseFn(m));
+          stages = partitionMovesIntoStages(currentPuzzleId, solutionMoves);
+        }
+
         activeMovesRef.current = solutionMoves;
         setActiveMoves(solutionMoves);
         setSolutionStages(stages);
         setCurrentMoveIndex(0);
         currentMoveIndexRef.current = 0;
-        setIsScrambled(true);
+        setIsScrambled(solutionMoves.length > 0);
         setActiveCaseId('manual-scramble-step-by-step');
         return next;
       });
@@ -564,6 +596,17 @@ export default function App() {
         onApplyLayout={(netState) => {
           if (cubeRef.current) {
             cubeRef.current.loadFullLayout(netState);
+            if (currentPuzzleId === 'cube-3x3' && cubeRef.current?.getModel) {
+              const stateSolution = solve3x3FromModel(cubeRef.current.getModel());
+              if (stateSolution && stateSolution.solutionMoves.length > 0) {
+                activeMovesRef.current = stateSolution.solutionMoves;
+                setActiveMoves(stateSolution.solutionMoves);
+                setSolutionStages(stateSolution.stages);
+                setCurrentMoveIndex(0);
+                setIsScrambled(true);
+                setActiveCaseId('custom-layout-solution');
+              }
+            }
           }
         }}
         onApplyPreset={handleApplyPreset}
