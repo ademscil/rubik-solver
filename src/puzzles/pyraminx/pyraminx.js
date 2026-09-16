@@ -119,8 +119,8 @@ export const pyraminxDefinition = {
 
   buildModel: (options) => buildPyraminxModel(options),
 
-  animateMove: (moveStr, group, onComplete, duration) => {
-    animatePyraminxMove(group, moveStr, onComplete, duration);
+  animateMove: (moveStr, group, onComplete, duration, pivotGroup) => {
+    animatePyraminxMove(group, moveStr, onComplete, duration, pivotGroup);
   },
 
   resetModel: (group) => {

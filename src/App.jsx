@@ -346,29 +346,28 @@ export default function App() {
       stages = partitionMovesIntoStages(currentPuzzleId, solutionMoves);
     }
 
-    // Limit animated scramble moves to 12 max for snappy, exciting 1-second animation
-    const animMoves = scrambleMoves.slice(0, 12);
-    const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
-    const appliedSolution = (animMoves.length === scrambleMoves.length)
-      ? solutionMoves
-      : [...animMoves].reverse().map(m => getInverseFn(m));
-    const appliedStages = (animMoves.length === scrambleMoves.length)
-      ? stages
-      : partitionMovesIntoStages(currentPuzzleId, appliedSolution);
+    // Number of animated moves to show in rapid visual sequence (~1 second)
+    const animCount = Math.min(14, scrambleMoves.length);
+    const animMoves = scrambleMoves.slice(0, animCount);
+    const remainingMoves = scrambleMoves.slice(animCount);
 
     setIsScrambling(true);
     setIsScrambled(false);
     setActiveMoves([]);
     setCurrentMoveIndex(0);
 
-    // Run rapid scramble animation (85ms per move = ~1 second total)
-    cubeRef.current.animateSequence(animMoves, 85, () => {
+    // Run rapid visual scramble animation (75ms per move)
+    cubeRef.current.animateSequence(animMoves, 75, () => {
+      // Apply any remaining scramble moves instantly so the cube is at the exact scrambled state
+      if (remainingMoves.length > 0 && cubeRef.current) {
+        cubeRef.current.applyMovesInstant(remainingMoves);
+      }
       setIsScrambling(false);
-      setScrambleHistory(animMoves);
-      scrambleHistoryRef.current = animMoves;
+      setScrambleHistory(scrambleMoves);
+      scrambleHistoryRef.current = scrambleMoves;
       setIsScrambled(true);
-      setActiveMoves(appliedSolution);
-      setSolutionStages(appliedStages);
+      setActiveMoves(solutionMoves);
+      setSolutionStages(stages);
       setCurrentMoveIndex(0);
       currentMoveIndexRef.current = 0;
       setActiveCaseId('auto-solve-step-by-step');

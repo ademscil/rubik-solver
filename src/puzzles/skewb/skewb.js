@@ -130,8 +130,8 @@ export const skewbDefinition = {
 
   buildModel: (options) => buildSkewbModel(options),
 
-  animateMove: (moveStr, group, onComplete, duration) => {
-    animateSkewbMove(group, moveStr, onComplete, duration);
+  animateMove: (moveStr, group, onComplete, duration, pivotGroup) => {
+    animateSkewbMove(group, moveStr, onComplete, duration, pivotGroup);
   },
 
   resetModel: (group) => {

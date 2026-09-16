@@ -149,8 +149,8 @@ export const square1Definition = {
 
   buildModel: (options) => buildSquare1Model(options),
 
-  animateMove: (moveStr, group, onComplete, duration) => {
-    animateSquare1Move(group, moveStr, onComplete, duration);
+  animateMove: (moveStr, group, onComplete, duration, pivotGroup) => {
+    animateSquare1Move(group, moveStr, onComplete, duration, pivotGroup);
   },
 
   resetModel: (group) => {

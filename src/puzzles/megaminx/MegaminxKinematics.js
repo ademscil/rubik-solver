@@ -188,8 +188,8 @@ export function animateMegaminxMove(modelGroup, moveStr, onComplete, duration = 
   }
 
   const parsed = parseMegaminxMove(moveStr);
-  const { axis, angle, type } = parsed;
-  const threshold = type === 'pochmann' ? -0.1 : 1.55;
+  const { axis, angle, type, axisKey } = parsed;
+  const threshold = type === 'pochmann' ? 0.05 : 1.52;
 
   const activeMeshes = [];
   modelGroup.traverse((child) => {
@@ -198,8 +198,18 @@ export function animateMegaminxMove(modelGroup, moveStr, onComplete, duration = 
       const worldCenter = new THREE.Vector3();
       box.getCenter(worldCenter);
       const localCenter = modelGroup.worldToLocal(worldCenter.clone());
-      if (localCenter.dot(axis) > threshold) {
-        activeMeshes.push(child);
+
+      if (type === 'pochmann') {
+        // In Pochmann scrambling, top face U is strictly stationary
+        if (child.name.startsWith('sticker-U-')) return;
+        if (axisKey === 'R' && (child.name.startsWith('sticker-L-') || child.name.startsWith('sticker-FL-') || child.name.startsWith('sticker-BL-'))) return;
+        if (localCenter.dot(axis) > threshold) {
+          activeMeshes.push(child);
+        }
+      } else {
+        if (localCenter.dot(axis) > threshold) {
+          activeMeshes.push(child);
+        }
       }
     }
   });

@@ -17,40 +17,58 @@ export { generatePedagogicalLBLSolution, generatePedagogical5x5Solution };
 const PUZZLE_STAGE_TEMPLATES = {
   'cube-5x5': [
     {
-      id: 'stage-1',
-      title: 'Tahap 1: Membuat 6 Pusat Sisi 3x3 (Centers)',
-      shortTitle: 'Pusat 3x3',
-      badge: '6 Center 3x3',
+      id: 'part-1',
+      title: 'Part 1: Membuat 2 Center Pertama (Putih & Kuning)',
+      shortTitle: 'Center 1-2',
+      badge: 'Part 1: Center 1-2',
       formulaName: "Rw U Rw' / 2Rw U 2Rw'",
-      description: 'Menyusun pusat putih & kuning, lalu menuntaskan 4 pusat samping dengan komutator baris.',
+      description: 'Menyusun baris tengah 1x3 putih di dasar dan kuning di seberangnya.',
       tips: 'Bentuk baris 1x3 terlebih dahulu, lalu satukan 3 baris menjadi center 3x3.'
     },
     {
-      id: 'stage-2',
-      title: 'Tahap 2: Memasangkan 12 Rusuk (Edge Pairing / 12 Tredges)',
-      shortTitle: '12 Tredges',
-      badge: '12 Tredges',
-      formulaName: "Uw' (R U R' F R' F' R) Uw",
-      description: 'Menggabungkan 1 rusuk tengah dan 2 rusuk sayap untuk setiap 12 sisi menjadi rusuk utuh.',
-      tips: 'Gunakan teknik Slice-Flip-Slice tanpa merusak center yang telah jadi.'
+      id: 'part-2',
+      title: 'Part 2: Membuat 4 Center Samping (Depan, Kanan, Kiri, Belakang)',
+      shortTitle: '4 Center',
+      badge: 'Part 2: 4 Center',
+      formulaName: "3Rw U 3Rw' / 2Rw U' 2Rw'",
+      description: 'Menyelesaikan pusat depan, kanan, kiri, dan belakang dengan komutator baris.',
+      tips: 'Gunakan komutator baris agar center putih dan kuning yang sudah jadi tidak rusak.'
     },
     {
-      id: 'stage-3',
-      title: 'Tahap 3: Menyelesaikan Seperti Rubik 3x3',
-      shortTitle: 'Metode 3x3',
-      badge: 'Reduksi 3x3',
+      id: 'part-3',
+      title: 'Part 3: Memasangkan 8 Rusuk Pertama (Freeslice Tredges)',
+      shortTitle: '8 Tredges',
+      badge: 'Part 3: 8 Tredges',
+      formulaName: "Uw' (R U R' F R' F' R) Uw",
+      description: 'Menggabungkan rusuk tengah dengan rusuk sayap kiri dan kanan pada lapisan bebas.',
+      tips: 'Gunakan lapisan bebas untuk menyandingkan pasangan rusuk tanpa merusak center.'
+    },
+    {
+      id: 'part-4',
+      title: 'Part 4: Memasangkan 4 Rusuk Terakhir (Slice-Flip-Slice)',
+      shortTitle: '4 Rusuk Akhir',
+      badge: 'Part 4: 4 Rusuk',
+      formulaName: "Uw' (Trigger) Uw",
+      description: 'Menyelesaikan 4 rusuk terakhir dengan teknik Slice-Flip-Slice di slot depan/atas.',
+      tips: 'Iris lapisan atas, balik rusuk di slot kanan, lalu kembalikan irisan.'
+    },
+    {
+      id: 'part-5',
+      title: 'Part 5: Menyelesaikan Seperti Rubik 3x3',
+      shortTitle: 'Tahap 3x3',
+      badge: 'Part 5: Tahap 3x3',
       formulaName: 'Cross + F2L + OLL',
       description: 'Selesaikan kubus seperti 3x3 biasa dari palang bawah hingga orientasi kuning.',
       tips: 'Anggap setiap blok 3x3 sebagai center dan setiap tredge sebagai edge biasa.'
     },
     {
-      id: 'stage-4',
-      title: 'Tahap 4: Paritas Sayap & Selesai (PLL)',
+      id: 'part-6',
+      title: 'Part 6: Paritas Sayap & Selesai (PLL)',
       shortTitle: 'Paritas/Selesai',
-      badge: 'Paritas Sayap',
-      formulaName: 'Rw U2 Rw U2 ... (Parity)',
+      badge: 'Part 6: Paritas Sayap',
+      formulaName: 'Rw2 B2 U2 ... (Parity) + T-Perm',
       description: 'Membalikkan sayap rusuk terakhir jika terbalik arah, lalu kunci dengan PLL akhir.',
-      tips: 'Eksekusi rumus paritas sayap 5x5 untuk menuntaskan penyelesaian.'
+      tips: 'Eksekusi rumus paritas sayap 5x5 untuk menuntaskan penyelesaian hingga 100% utuh.'
     }
   ],
   'cube-3x3': [
