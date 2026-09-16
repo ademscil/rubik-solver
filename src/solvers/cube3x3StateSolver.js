@@ -55,8 +55,13 @@ export function extract3x3StickerState(modelGroup) {
 
     for (let faceIdx = 0; faceIdx < 6; faceIdx++) {
       const mat = materials[faceIdx];
-      const match = mat?.userData?.cacheKey?.match(/#[0-9A-Fa-f]{6}/);
-      const hex = match ? match[0].toUpperCase() : null;
+      let hex = null;
+      if (mat?.userData?.hexColor && typeof mat.userData.hexColor === 'string' && mat.userData.hexColor.startsWith('#')) {
+        hex = mat.userData.hexColor.toUpperCase();
+      } else {
+        const match = mat?.userData?.cacheKey?.match(/#[0-9A-Fa-f]{6}/);
+        hex = match ? match[0].toUpperCase() : null;
+      }
       if (!hex || hex === '#121215') continue; // Skip unstickered core body
 
       const worldNorm = localNormals[faceIdx].clone().applyQuaternion(child.quaternion);

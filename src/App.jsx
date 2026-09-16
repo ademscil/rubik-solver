@@ -18,6 +18,8 @@ import {
 } from './solvers/solverStages.js';
 import { getActiveStageInfo } from './solvers/lbl3x3Solver.js';
 import { solve3x3FromModel } from './solvers/cube3x3StateSolver.js';
+import { solve2x2FromModel } from './solvers/cube2x2StateSolver.js';
+import { simplifyMoves } from './solvers/moveSimplifier.js';
 
 export default function App() {
   const cubeRef = useRef(null);
@@ -408,7 +410,7 @@ export default function App() {
 
   // Step-by-Step Solver: Plays or steps through resolution
   const handleSolveStepByStep = useCallback(() => {
-    if (!isScrambled || activeMoves.length === 0) {
+    if (activeMoves.length === 0 || currentMoveIndex >= activeMoves.length) {
       if (currentPuzzleId === 'cube-3x3' && cubeRef.current?.getModel) {
         const stateSolution = solve3x3FromModel(cubeRef.current.getModel());
         if (stateSolution && stateSolution.solutionMoves.length > 0) {
@@ -421,6 +423,41 @@ export default function App() {
           setIsPlaying(true);
           isPlayingRef.current = true;
           cubeRef.current.makeMove(stateSolution.solutionMoves[0], handleMoveComplete);
+          return;
+        }
+      }
+
+      if (currentPuzzleId === 'cube-2x2' && cubeRef.current?.getModel) {
+        const stateSolution = solve2x2FromModel(cubeRef.current.getModel());
+        if (stateSolution && stateSolution.solutionMoves.length > 0) {
+          activeMovesRef.current = stateSolution.solutionMoves;
+          setActiveMoves(stateSolution.solutionMoves);
+          setSolutionStages(stateSolution.stages);
+          setCurrentMoveIndex(0);
+          currentMoveIndexRef.current = 0;
+          setIsScrambled(true);
+          setIsPlaying(true);
+          isPlayingRef.current = true;
+          cubeRef.current.makeMove(stateSolution.solutionMoves[0], handleMoveComplete);
+          return;
+        }
+      }
+
+      if (scrambleHistoryRef.current.length > 0) {
+        const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
+        const rawInverse = [...scrambleHistoryRef.current].reverse().map((m) => getInverseFn(m));
+        const simplified = simplifyMoves(rawInverse);
+        const stages = partitionMovesIntoStages(currentPuzzleId, simplified);
+        if (simplified.length > 0) {
+          activeMovesRef.current = simplified;
+          setActiveMoves(simplified);
+          setSolutionStages(stages);
+          setCurrentMoveIndex(0);
+          currentMoveIndexRef.current = 0;
+          setIsScrambled(true);
+          setIsPlaying(true);
+          isPlayingRef.current = true;
+          cubeRef.current.makeMove(simplified[0], handleMoveComplete);
           return;
         }
       }
@@ -465,7 +502,7 @@ export default function App() {
       setIsPlaying(false);
       isPlayingRef.current = false;
     }
-  }, [activeMoves, currentMoveIndex, isPlaying, isScrambled, handleMoveComplete, handleScramble, currentPuzzleId]);
+  }, [activeMoves, currentMoveIndex, isPlaying, handleMoveComplete, handleScramble, currentPuzzleId, currentPuzzle]);
 
   // Reset puzzle to solved state
   const handleResetCube = useCallback(() => {
@@ -509,10 +546,20 @@ export default function App() {
           }
         }
 
-        // 2. Fallback for other puzzles
+        // 2. Try algorithmic state-based solver for 2x2
+        if (!solutionMoves && currentPuzzleId === 'cube-2x2' && cubeRef.current?.getModel) {
+          const stateSolution = solve2x2FromModel(cubeRef.current.getModel());
+          if (stateSolution) {
+            solutionMoves = stateSolution.solutionMoves;
+            stages = stateSolution.stages;
+          }
+        }
+
+        // 3. Fallback for other puzzles: group cancellation + stage reduction
         if (!solutionMoves) {
           const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
-          solutionMoves = [...next].reverse().map((m) => getInverseFn(m));
+          const rawInverse = [...next].reverse().map((m) => getInverseFn(m));
+          solutionMoves = simplifyMoves(rawInverse);
           stages = partitionMovesIntoStages(currentPuzzleId, solutionMoves);
         }
 
@@ -737,7 +784,21 @@ export default function App() {
               }
             }
 
-            // 2. For 5x5 and all other puzzles: generate authentic pedagogical reduction solution
+            // 2. For 2x2: attempt state-based group solver
+            if (currentPuzzleId === 'cube-2x2' && cubeRef.current?.getModel) {
+              const stateSolution = solve2x2FromModel(cubeRef.current.getModel());
+              if (stateSolution && stateSolution.solutionMoves.length > 0) {
+                activeMovesRef.current = stateSolution.solutionMoves;
+                setActiveMoves(stateSolution.solutionMoves);
+                setSolutionStages(stateSolution.stages);
+                setCurrentMoveIndex(0);
+                setIsScrambled(true);
+                setActiveCaseId('custom-layout-solution');
+                return;
+              }
+            }
+
+            // 3. For 5x5 and all other puzzles: generate authentic pedagogical reduction solution
             const pedagogical = getPedagogicalSolutionForPuzzle(currentPuzzleId);
             if (pedagogical && pedagogical.solutionMoves?.length > 0) {
               activeMovesRef.current = pedagogical.solutionMoves;

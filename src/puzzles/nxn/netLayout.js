@@ -74,6 +74,7 @@ function updateMeshFaceColor(mesh, faceIndex, hexColor) {
 
   mat.map = getStickerTexture(hexColor);
   mat.userData.hexColor = hexColor;
+  mat.userData.cacheKey = hexColor;
   mat.needsUpdate = true;
 }
 

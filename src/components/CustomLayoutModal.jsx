@@ -100,7 +100,31 @@ export default function CustomLayoutModal({
     setNetState(getInitialSolvedState());
   };
 
+  // Mathematical validation: each color must have exactly stickersPerFace stickers
+  const colorCounts = useMemo(() => {
+    const counts = {};
+    palette.forEach((p) => {
+      counts[p.hex.toUpperCase()] = 0;
+    });
+    Object.values(netState).forEach((faceStickers) => {
+      if (Array.isArray(faceStickers)) {
+        faceStickers.forEach((hex) => {
+          if (!hex) return;
+          const uHex = hex.toUpperCase();
+          counts[uHex] = (counts[uHex] || 0) + 1;
+        });
+      }
+    });
+    return counts;
+  }, [netState, palette]);
+
+  const expectedStickersPerColor = stickersPerFace;
+  const isNetValid = useMemo(() => {
+    return palette.every((p) => (colorCounts[p.hex.toUpperCase()] || 0) === expectedStickersPerColor);
+  }, [palette, colorCounts, expectedStickersPerColor]);
+
   const handleApply = () => {
+    if (!isNetValid) return;
     if (onApplyLayout) {
       onApplyLayout(netState);
     }
@@ -240,35 +264,86 @@ export default function CustomLayoutModal({
             </div>
           ) : (
             <div className="space-y-5">
-              {/* Color Palette Bar */}
-              <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-400 mr-1">Pilih Warna:</span>
-                  <div className="flex items-center gap-2 flex-wrap">
-                    {palette.map((item) => (
-                      <button
-                        key={item.key}
-                        onClick={() => setSelectedColorHex(item.hex)}
-                        style={{ backgroundColor: item.hex }}
-                        className={`w-7 h-7 rounded-xl transition-all border-2 ${
-                          selectedColorHex === item.hex
-                            ? 'ring-2 ring-sky-400 scale-110 border-white shadow-lg'
-                            : 'border-black/40 hover:scale-105'
-                        }`}
-                        title={item.name}
-                      />
-                    ))}
+              {/* Color Palette Bar & Live Counter */}
+              <div className="flex flex-col gap-2.5 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-bold text-slate-400 mr-1">Pilih Warna:</span>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      {palette.map((item) => {
+                        const count = colorCounts[item.hex.toUpperCase()] || 0;
+                        const isMatch = count === expectedStickersPerColor;
+                        return (
+                          <button
+                            key={item.key}
+                            onClick={() => setSelectedColorHex(item.hex)}
+                            style={{ backgroundColor: item.hex }}
+                            className={`w-7 h-7 rounded-xl transition-all border-2 relative ${
+                              selectedColorHex === item.hex
+                                ? 'ring-2 ring-sky-400 scale-110 border-white shadow-lg'
+                                : 'border-black/40 hover:scale-105'
+                            }`}
+                            title={`${item.name} (${count}/${expectedStickersPerColor})`}
+                          >
+                            {!isMatch && (
+                              <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-rose-500 border border-slate-950" />
+                            )}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
+
+                  <button
+                    onClick={handleResetToSolved}
+                    className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl flex items-center gap-1.5 transition-colors"
+                  >
+                    <RefreshCw className="w-3.5 h-3.5" />
+                    <span>Reset Solved</span>
+                  </button>
                 </div>
 
-                <button
-                  onClick={handleResetToSolved}
-                  className="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl flex items-center gap-1.5 transition-colors"
-                >
-                  <RefreshCw className="w-3.5 h-3.5" />
-                  <span>Reset Solved</span>
-                </button>
+                {/* Live Sticker Count Badges */}
+                <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-slate-850">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Kuantitas:
+                  </span>
+                  {palette.map((item) => {
+                    const count = colorCounts[item.hex.toUpperCase()] || 0;
+                    const isMatch = count === expectedStickersPerColor;
+                    return (
+                      <span
+                        key={`badge-${item.key}`}
+                        className={`text-[10px] font-mono px-2 py-0.5 rounded-md border flex items-center gap-1 ${
+                          isMatch
+                            ? 'bg-emerald-950/50 text-emerald-300 border-emerald-800/50'
+                            : 'bg-rose-950/60 text-rose-300 border-rose-800/50 font-bold animate-pulse'
+                        }`}
+                      >
+                        <span
+                          className="w-2 h-2 rounded-full inline-block border border-black/30"
+                          style={{ backgroundColor: item.hex }}
+                        />
+                        <span>{item.name.split(' ')[0]}:</span>
+                        <span>{count}/{expectedStickersPerColor}</span>
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
+
+              {/* Mathematical Invariance Alert Banner */}
+              {!isNetValid && (
+                <div className="bg-rose-950/40 border border-rose-800/60 rounded-2xl p-3 flex items-start gap-2.5 text-rose-200 text-xs">
+                  <AlertCircle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-rose-300">Peringatan Validitas Matematika: </span>
+                    <span>
+                      Setiap sisi warna wajib memiliki tepat {expectedStickersPerColor} stiker agar kubus berada pada grup permutasi yang sah. Perbaiki stiker yang bertanda merah sebelum menerapkan.
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* 2D Cross Net Layout */}
               <div className="flex flex-col items-center gap-3 py-2 overflow-x-auto">
@@ -300,7 +375,13 @@ export default function CustomLayoutModal({
                 </button>
                 <button
                   onClick={handleApply}
-                  className="px-5 py-2 bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 text-white text-xs font-bold rounded-xl shadow-lg shadow-sky-500/25 flex items-center gap-2 transition-all"
+                  disabled={!isNetValid}
+                  title={!isNetValid ? `Setiap warna harus berjumlah tepat ${expectedStickersPerColor} stiker` : 'Terapkan tata letak'}
+                  className={`px-5 py-2 text-white text-xs font-bold rounded-xl shadow-lg flex items-center gap-2 transition-all ${
+                    isNetValid
+                      ? 'bg-gradient-to-r from-sky-500 to-blue-600 hover:from-sky-400 hover:to-blue-500 shadow-sky-500/25 cursor-pointer'
+                      : 'bg-slate-800 text-slate-500 border border-slate-700/50 cursor-not-allowed shadow-none'
+                  }`}
                 >
                   <Check className="w-4 h-4" />
                   <span>Terapkan ke Model 3D</span>
