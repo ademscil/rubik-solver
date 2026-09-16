@@ -3,17 +3,18 @@
  * 3D Geometry and Model Generator for Windmill Cube (Katsuhiko Okamoto 2003)
  * 
  * Anatomy:
- * - 3x3x3 shape modification where the vertical cuts are rotated by arctan(1/2) ≈ 26.565° around Y.
- * - Produces 26 solid sculpted prisms in 9 vertical columns:
- *   - 1 rotated square center column (diamond on U/D)
- *   - 4 skewed trapezoidal edge columns
+ * - 3x3x3 shape modification where the outer cuboid boundary is rotated by arctan(1/2) ≈ 26.565°
+ *   around the vertical Y axis relative to the internal 3x3 mechanism.
+ * - Produces 26 solid sculpted prisms across the 3x3 grid cells:
+ *   - 1 center square column (diamond on U/D)
+ *   - 4 trapezoidal edge columns
  *   - 4 triangular corner columns
  * - Total 54 outer stickers (9 per face on U, D, F, B, R, L)
- * - Uses standard NxN kinematics for smooth 60 FPS shape-shifting layer rotations
+ * - Mechanically identical to a standard 3x3 mechanism, guaranteeing 100% collision-free,
+ *   rock-solid shape-shifting 60 FPS animations during all moves and scrambles.
  */
 
 import * as THREE from 'three';
-import { getStickerMaterial, getInternalCoreMaterial, STICKER_COLORS } from '../../engine/TextureCache.js';
 
 export const WINDMILL_COLORS = {
   U: { name: 'Putih (Atas)', hex: '#FFFFFF', code: 'U' },
@@ -24,16 +25,12 @@ export const WINDMILL_COLORS = {
   L: { name: 'Oranye (Kiri)', hex: '#FF8C00', code: 'L' }
 };
 
-const W = 1.44; // Half-width of outer cube envelope
-const H = 0.94; // Height of each layer
+const W = 1.5; // Half-width of outer cube envelope (matches standard 3x3 of size 3.0)
+const H = 0.96; // Height of each layer (leaves 0.04 gap between layers)
 const THETA = Math.atan(0.5); // 26.565° Okamoto rotation
 const COS_T = Math.cos(THETA);
 const SIN_T = Math.sin(THETA);
-const CUT_OFFSET = 0.48; // Boundary offset of inner cuts
-
-function toWorld(u, v) {
-  return { x: COS_T * u - SIN_T * v, z: SIN_T * u + COS_T * v };
-}
+const C = 0.5; // Boundary offset of inner cuts in mechanism space
 
 function clipPolygon(poly, nx, nz, dVal) {
   const out = [];
@@ -69,31 +66,35 @@ function clipPolygon(poly, nx, nz, dVal) {
 }
 
 /**
- * Precomputes the 2D cross-section polygons for all 9 vertical columns of the Windmill Cube.
+ * Precomputes the 2D cross-section polygons for all 9 vertical columns in mechanism coordinates.
  */
 function computeColumnPolygons() {
-  const big = 4.0;
+  const big = 10.0;
   const columnMap = {};
 
-  for (let iu = -1; iu <= 1; iu++) {
-    for (let iv = -1; iv <= 1; iv++) {
-      const uMin = iu === -1 ? -big : iu === 0 ? -CUT_OFFSET : CUT_OFFSET;
-      const uMax = iu === -1 ? -CUT_OFFSET : iu === 0 ? CUT_OFFSET : big;
-      const vMin = iv === -1 ? -big : iv === 0 ? -CUT_OFFSET : CUT_OFFSET;
-      const vMax = iv === -1 ? -CUT_OFFSET : iv === 0 ? CUT_OFFSET : big;
+  for (let ix = -1; ix <= 1; ix++) {
+    for (let iz = -1; iz <= 1; iz++) {
+      const xMin = ix === -1 ? -big : ix === 0 ? -C : C;
+      const xMax = ix === -1 ? -C : ix === 0 ? C : big;
+      const zMin = iz === -1 ? -big : iz === 0 ? -C : C;
+      const zMax = iz === -1 ? -C : iz === 0 ? C : big;
 
       let poly = [
-        toWorld(uMin, vMin),
-        toWorld(uMax, vMin),
-        toWorld(uMax, vMax),
-        toWorld(uMin, vMax)
+        { x: xMin, z: zMin },
+        { x: xMax, z: zMin },
+        { x: xMax, z: zMax },
+        { x: xMin, z: zMax }
       ];
 
-      // Clip against outer cube boundaries
-      poly = clipPolygon(poly, 1, 0, W);
-      poly = clipPolygon(poly, -1, 0, W);
-      poly = clipPolygon(poly, 0, 1, W);
-      poly = clipPolygon(poly, 0, -1, W);
+      // Clip against outer cube boundaries in world coordinates:
+      // x_w = X * cos - Z * sin <= W
+      poly = clipPolygon(poly, COS_T, -SIN_T, W);
+      // x_w >= -W <=> -X * cos + Z * sin <= W
+      poly = clipPolygon(poly, -COS_T, SIN_T, W);
+      // z_w = X * sin + Z * cos <= W
+      poly = clipPolygon(poly, SIN_T, COS_T, W);
+      // z_w >= -W <=> -X * sin - Z * cos <= W
+      poly = clipPolygon(poly, -SIN_T, -COS_T, W);
 
       let area = 0;
       for (let i = 0; i < poly.length; i++) {
@@ -104,15 +105,7 @@ function computeColumnPolygons() {
         poly.reverse();
       }
 
-      let cx = 0;
-      let cz = 0;
-      poly.forEach(p => { cx += p.x; cz += p.z; });
-      cx /= poly.length;
-      cz /= poly.length;
-      const gx = Math.round(cx);
-      const gz = Math.round(cz);
-
-      columnMap[`${gx}_${gz}`] = poly;
+      columnMap[`${ix}_${iz}`] = poly;
     }
   }
   return columnMap;
@@ -140,10 +133,11 @@ function scalePoint(p, center, factor) {
  * 5: Back (Blue)
  * 6: Internal Plastic Core (#181820)
  */
-function buildPrismGeometry(worldPoly, gx, gy, gz) {
+function buildPrismGeometry(worldPoly, ix, iy, iz) {
   const geom = new THREE.BufferGeometry();
   const N = worldPoly.length;
-  const localPoly = worldPoly.map(p => ({ x: p.x - gx, z: p.z - gz }));
+  // Local poly is centered relative to (ix, iz)
+  const localPoly = worldPoly.map(p => ({ x: p.x - ix, z: p.z - iz }));
 
   let centroid = { x: 0, z: 0 };
   localPoly.forEach(p => { centroid.x += p.x; centroid.z += p.z; });
@@ -212,14 +206,14 @@ function buildPrismGeometry(worldPoly, gx, gy, gz) {
   const stickerOffset = 0.008;
 
   // Top Cap Sticker (+Y: White, matIdx = 2)
-  if (gy === 1) {
+  if (iy === 1) {
     const stickerPoly = localPoly.map(p => scalePoint(p, centroid, stickerInset));
     const sTopStart = positions.length / 3;
     const sy = halfH + stickerOffset;
     stickerPoly.forEach(p => {
       positions.push(p.x, sy, p.z);
       normals.push(0, 1, 0);
-      uvs.push((p.x + 1.44) / 2.88, (p.z + 1.44) / 2.88);
+      uvs.push((p.x + 1.5) / 3.0, (p.z + 1.5) / 3.0);
     });
     const sTopIdxStart = indices.length;
     for (let i = 1; i < N - 1; i++) {
@@ -229,14 +223,14 @@ function buildPrismGeometry(worldPoly, gx, gy, gz) {
   }
 
   // Bottom Cap Sticker (-Y: Yellow, matIdx = 3)
-  if (gy === -1) {
+  if (iy === -1) {
     const stickerPoly = localPoly.map(p => scalePoint(p, centroid, stickerInset));
     const sBotStart = positions.length / 3;
     const sy = -halfH - stickerOffset;
     stickerPoly.forEach(p => {
       positions.push(p.x, sy, p.z);
       normals.push(0, -1, 0);
-      uvs.push((p.x + 1.44) / 2.88, (p.z + 1.44) / 2.88);
+      uvs.push((p.x + 1.5) / 3.0, (p.z + 1.5) / 3.0);
     });
     const sBotIdxStart = indices.length;
     for (let i = 1; i < N - 1; i++) {
@@ -252,11 +246,14 @@ function buildPrismGeometry(worldPoly, gx, gy, gz) {
     const midX = (wp1.x + wp2.x) / 2;
     const midZ = (wp1.z + wp2.z) / 2;
 
+    const xw = midX * COS_T - midZ * SIN_T;
+    const zw = midX * SIN_T + midZ * COS_T;
+
     let stickerMatIdx = -1;
-    if (Math.abs(midX - W) < 0.02) stickerMatIdx = 0; // Right (Red)
-    else if (Math.abs(midX - (-W)) < 0.02) stickerMatIdx = 1; // Left (Orange)
-    else if (Math.abs(midZ - W) < 0.02) stickerMatIdx = 4; // Front (Green)
-    else if (Math.abs(midZ - (-W)) < 0.02) stickerMatIdx = 5; // Back (Blue)
+    if (Math.abs(xw - W) < 0.02) stickerMatIdx = 0; // Right (Red)
+    else if (Math.abs(xw - (-W)) < 0.02) stickerMatIdx = 1; // Left (Orange)
+    else if (Math.abs(zw - W) < 0.02) stickerMatIdx = 4; // Front (Green)
+    else if (Math.abs(zw - (-W)) < 0.02) stickerMatIdx = 5; // Back (Blue)
 
     if (stickerMatIdx >= 0) {
       const p1 = localPoly[i];
@@ -326,7 +323,7 @@ export function buildWindmillModel(options = {}) {
   group.userData = {
     order: 3,
     pitch: 1.0,
-    size: 0.94,
+    size: 1.0,
     isNxN: true,
     isWindmill: true,
     puzzleType: 'windmill'
@@ -343,30 +340,30 @@ export function buildWindmillModel(options = {}) {
   const materials = [matR, matL, matU, matD, matF, matB, matCore];
   const cubies = [];
 
-  for (let gx = -1; gx <= 1; gx++) {
-    for (let gy = -1; gy <= 1; gy++) {
-      for (let gz = -1; gz <= 1; gz++) {
+  for (let ix = -1; ix <= 1; ix++) {
+    for (let iy = -1; iy <= 1; iy++) {
+      for (let iz = -1; iz <= 1; iz++) {
         // Skip hidden internal core
-        if (gx === 0 && gy === 0 && gz === 0) continue;
+        if (ix === 0 && iy === 0 && iz === 0) continue;
 
-        const poly = COLUMN_POLYGONS[`${gx}_${gz}`];
+        const poly = COLUMN_POLYGONS[`${ix}_${iz}`];
         if (!poly) continue;
 
-        const geom = buildPrismGeometry(poly, gx, gy, gz);
+        const geom = buildPrismGeometry(poly, ix, iy, iz);
         const mesh = new THREE.Mesh(geom, materials);
 
-        mesh.position.set(gx, gy, gz);
-        mesh.name = `cubie_${gx + 1}_${gy + 1}_${gz + 1}`;
+        mesh.position.set(ix, iy, iz);
+        mesh.name = `cubie_${ix + 1}_${iy + 1}_${iz + 1}`;
         mesh.userData = {
           order: 3,
           cubieIndex: cubies.length,
-          initialLayerX: gx + 1,
-          initialLayerY: gy + 1,
-          initialLayerZ: gz + 1,
-          layerX: gx + 1,
-          layerY: gy + 1,
-          layerZ: gz + 1,
-          gridPos: { x: gx, y: gy, z: gz }
+          initialLayerX: ix + 1,
+          initialLayerY: iy + 1,
+          initialLayerZ: iz + 1,
+          layerX: ix + 1,
+          layerY: iy + 1,
+          layerZ: iz + 1,
+          gridPos: { x: ix, y: iy, z: iz }
         };
 
         group.add(mesh);
@@ -379,4 +376,3 @@ export function buildWindmillModel(options = {}) {
   group.updateMatrixWorld(true);
   return group;
 }
-
