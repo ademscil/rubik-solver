@@ -181,44 +181,86 @@ export function getMoveInfo(move) {
   };
 }
 
-export function animateMegaminxMove(modelGroup, moveStr, onComplete, duration = 300) {
+export function animateMegaminxMove(modelGroup, moveStr, onComplete, duration = 300, pivotGroup = null) {
   if (!modelGroup) {
     onComplete?.();
     return;
   }
 
   const parsed = parseMegaminxMove(moveStr);
-  const { axis, angle } = parsed;
+  const { axis, angle, type } = parsed;
+  const threshold = type === 'pochmann' ? -0.1 : 1.55;
 
-  if (!modelGroup.quaternion) {
+  const activeMeshes = [];
+  modelGroup.traverse((child) => {
+    if (child.isMesh && child.name && child.name.startsWith('sticker-')) {
+      const box = new THREE.Box3().setFromObject(child);
+      const worldCenter = new THREE.Vector3();
+      box.getCenter(worldCenter);
+      const localCenter = modelGroup.worldToLocal(worldCenter.clone());
+      if (localCenter.dot(axis) > threshold) {
+        activeMeshes.push(child);
+      }
+    }
+  });
+
+  if (activeMeshes.length === 0) {
     onComplete?.();
     return;
   }
 
+  const pivot = pivotGroup || new THREE.Group();
+  pivot.rotation.set(0, 0, 0);
+  pivot.position.set(0, 0, 0);
+  pivot.updateMatrix();
+  pivot.updateMatrixWorld(true);
+
+  if (!pivot.parent && modelGroup.parent) {
+    modelGroup.parent.add(pivot);
+  } else if (!pivot.parent) {
+    modelGroup.add(pivot);
+  }
+
+  activeMeshes.forEach(mesh => pivot.attach(mesh));
+
+  const finalize = () => {
+    activeMeshes.forEach(mesh => modelGroup.attach(mesh));
+    if (pivot.parent) pivot.parent.remove(pivot);
+    modelGroup.updateMatrixWorld(true);
+    onComplete?.();
+  };
+
+  // Instant mode
   if (typeof requestAnimationFrame === 'undefined' || duration <= 0) {
-    const q = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-    modelGroup.quaternion.premultiply(q);
-    modelGroup.updateMatrixWorld?.(true);
-    onComplete?.();
+    pivot.rotateOnAxis(axis, angle);
+    pivot.updateMatrixWorld(true);
+    finalize();
     return;
   }
 
-  const startQ = modelGroup.quaternion.clone();
-  const rotQ = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-  const targetQ = rotQ.clone().multiply(startQ);
+  // Smooth easing animation
   const startTime = performance.now();
+  let currentAngle = 0;
 
   const step = (now) => {
-    const t = Math.min((now - startTime) / duration, 1.0);
-    const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-    modelGroup.quaternion.slerpQuaternions(startQ, targetQ, ease);
-    if (t < 1.0) {
+    const elapsed = now - startTime;
+    const progress = Math.min(elapsed / duration, 1.0);
+    const ease = progress < 0.5
+      ? 4 * progress * progress * progress
+      : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+    const targetAngle = angle * ease;
+    const delta = targetAngle - currentAngle;
+    pivot.rotateOnAxis(axis, delta);
+    pivot.updateMatrixWorld(true);
+    currentAngle = targetAngle;
+
+    if (progress < 1.0) {
       requestAnimationFrame(step);
     } else {
-      modelGroup.quaternion.copy(targetQ);
-      modelGroup.updateMatrixWorld?.(true);
-      onComplete?.();
+      finalize();
     }
   };
+
   requestAnimationFrame(step);
 }

@@ -10,12 +10,16 @@
 
 import * as THREE from 'three';
 
+const R = 2.2;
+const yBase = -R / 3;
+const rBase = R * (Math.sqrt(8) / 3);
+
 // Pyraminx axes - each vertex defines a rotation axis
-const PYRAMINX_AXES = {
-  U: new THREE.Vector3(0, 1, 0).normalize(),
-  R: new THREE.Vector3(1, -0.5, 0.5).normalize(),
-  L: new THREE.Vector3(-1, -0.5, 0.5).normalize(),
-  B: new THREE.Vector3(0, -0.5, -1).normalize()
+export const PYRAMINX_AXES = {
+  U: new THREE.Vector3(0, 1, 0),
+  B: new THREE.Vector3(0, yBase, rBase).normalize(),
+  L: new THREE.Vector3(-rBase * Math.cos(Math.PI / 6), yBase, -rBase * Math.sin(Math.PI / 6)).normalize(),
+  R: new THREE.Vector3(rBase * Math.cos(Math.PI / 6), yBase, -rBase * Math.sin(Math.PI / 6)).normalize()
 };
 
 const MOVE_REGEX = /^([URLBurlb])([''])?$/;
@@ -100,37 +104,75 @@ export function generateScramble(length = 8) {
   return moves.join(' ');
 }
 
+
 /**
- * Animate a Pyraminx move (simplified - rotates whole group as visual feedback)
+ * Animate a Pyraminx move by rotating only the selected layer or tip piece
  * @param {THREE.Group} modelGroup
  * @param {string} moveStr
  * @param {() => void} [onComplete]
  * @param {number} [duration=300]
+ * @param {THREE.Group} [pivotGroup]
  */
-export function animatePyraminxMove(modelGroup, moveStr, onComplete, duration = 300) {
+export function animatePyraminxMove(modelGroup, moveStr, onComplete, duration = 300, pivotGroup = null) {
   if (!modelGroup) {
     onComplete?.();
     return;
   }
 
   const moveInfo = parsePyraminxMove(moveStr);
-  const { axis, angle } = moveInfo;
+  const { axis, angle, isTip } = moveInfo;
+  const threshold = isTip ? 0.55 * R : 0.05 * R;
 
-  // Instant mode (headless/tests)
-  if (typeof requestAnimationFrame === 'undefined' || duration <= 0) {
-    const quaternion = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-    modelGroup.quaternion.premultiply(quaternion);
-    modelGroup.updateMatrixWorld(true);
+  // Find active stickers and meshes belonging to this vertex / layer
+  const activeMeshes = [];
+  modelGroup.traverse((child) => {
+    if (child.isMesh && child.name && child.name.startsWith('sticker-')) {
+      const box = new THREE.Box3().setFromObject(child);
+      const worldCenter = new THREE.Vector3();
+      box.getCenter(worldCenter);
+      const localCenter = modelGroup.worldToLocal(worldCenter.clone());
+      if (localCenter.dot(axis) > threshold) {
+        activeMeshes.push(child);
+      }
+    }
+  });
+
+  if (activeMeshes.length === 0) {
     onComplete?.();
     return;
   }
 
-  // Animated rotation
-  const startQuaternion = modelGroup.quaternion.clone();
-  const rotationQuaternion = new THREE.Quaternion().setFromAxisAngle(axis, angle);
-  const targetQuaternion = rotationQuaternion.clone().multiply(startQuaternion);
+  const pivot = pivotGroup || new THREE.Group();
+  pivot.rotation.set(0, 0, 0);
+  pivot.position.set(0, 0, 0);
+  pivot.updateMatrix();
+  pivot.updateMatrixWorld(true);
+  if (!pivot.parent && modelGroup.parent) {
+    modelGroup.parent.add(pivot);
+  } else if (!pivot.parent) {
+    modelGroup.add(pivot);
+  }
 
+  activeMeshes.forEach(mesh => pivot.attach(mesh));
+
+  const finalize = () => {
+    activeMeshes.forEach(mesh => modelGroup.attach(mesh));
+    if (pivot.parent) pivot.parent.remove(pivot);
+    modelGroup.updateMatrixWorld(true);
+    onComplete?.();
+  };
+
+  // Instant mode
+  if (typeof requestAnimationFrame === 'undefined' || duration <= 0) {
+    pivot.rotateOnAxis(axis, angle);
+    pivot.updateMatrixWorld(true);
+    finalize();
+    return;
+  }
+
+  // Smooth easing animation
   const startTime = performance.now();
+  let currentAngle = 0;
 
   const step = (now) => {
     const elapsed = now - startTime;
@@ -139,14 +181,16 @@ export function animatePyraminxMove(modelGroup, moveStr, onComplete, duration = 
       ? 4 * progress * progress * progress
       : 1 - Math.pow(-2 * progress + 2, 3) / 2;
 
-    modelGroup.quaternion.slerpQuaternions(startQuaternion, targetQuaternion, ease);
+    const targetAngle = angle * ease;
+    const delta = targetAngle - currentAngle;
+    pivot.rotateOnAxis(axis, delta);
+    pivot.updateMatrixWorld(true);
+    currentAngle = targetAngle;
 
     if (progress < 1.0) {
       requestAnimationFrame(step);
     } else {
-      modelGroup.quaternion.copy(targetQuaternion);
-      modelGroup.updateMatrixWorld(true);
-      onComplete?.();
+      finalize();
     }
   };
 

@@ -138,8 +138,8 @@ export const megaminxDefinition = {
 
   buildModel: (options) => buildMegaminxModel(options),
 
-  animateMove: (moveStr, group, onComplete, duration) => {
-    animateMegaminxMove(group, moveStr, onComplete, duration);
+  animateMove: (moveStr, group, onComplete, duration, pivotGroup) => {
+    animateMegaminxMove(group, moveStr, onComplete, duration, pivotGroup);
   },
 
   resetModel: (group) => {

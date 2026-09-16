@@ -139,7 +139,7 @@ export function getMoveInfo(token) {
   };
 }
 
-export function animateSquare1Move(modelGroup, moveStr, onComplete, duration = 300) {
+export function animateSquare1Move(modelGroup, moveStr, onComplete, duration = 300, pivotGroup = null) {
   if (!modelGroup) {
     onComplete?.();
     return;
@@ -148,36 +148,100 @@ export function animateSquare1Move(modelGroup, moveStr, onComplete, duration = 3
   const parsed = parseSquare1Move(moveStr);
 
   const topLayer = modelGroup.getObjectByName('layer-top');
+  const midLayer = modelGroup.getObjectByName('layer-middle');
   const botLayer = modelGroup.getObjectByName('layer-bottom');
 
   if (parsed.type === 'slice') {
-    // 180° slice of the right half
-    const sliceAxis = new THREE.Vector3(0, 0, 1);
-    const qSlice = new THREE.Quaternion().setFromAxisAngle(sliceAxis, Math.PI);
+    // 180° slice of the right half (x > 0.05)
+    const activePieces = [];
+    const candidates = [];
+    if (topLayer) candidates.push(...topLayer.children);
+    if (botLayer) candidates.push(...botLayer.children);
+    if (midLayer) candidates.push(...midLayer.children);
 
-    if (typeof requestAnimationFrame === 'undefined' || duration <= 0) {
-      modelGroup.quaternion.premultiply(qSlice);
-      modelGroup.updateMatrixWorld(true);
+    candidates.forEach(piece => {
+      const box = new THREE.Box3().setFromObject(piece);
+      const worldCenter = new THREE.Vector3();
+      box.getCenter(worldCenter);
+      const localCenter = modelGroup.worldToLocal(worldCenter.clone());
+      if (localCenter.x > 0.05) {
+        activePieces.push(piece);
+      }
+    });
+
+    if (activePieces.length === 0) {
       onComplete?.();
       return;
     }
 
-    const startQ = modelGroup.quaternion.clone();
-    const targetQ = qSlice.clone().multiply(startQ);
+    const pivot = pivotGroup || new THREE.Group();
+    pivot.rotation.set(0, 0, 0);
+    pivot.position.set(0, 0, 0);
+    pivot.updateMatrix();
+    pivot.updateMatrixWorld(true);
+
+    if (!pivot.parent && modelGroup.parent) {
+      modelGroup.parent.add(pivot);
+    } else if (!pivot.parent) {
+      modelGroup.add(pivot);
+    }
+
+    activePieces.forEach(p => pivot.attach(p));
+
+    const sliceAxis = new THREE.Vector3(1, 0, 0); // Rotate 180° around X axis
+    const sliceAngle = Math.PI;
+
+    const finalize = () => {
+      activePieces.forEach(piece => {
+        const box = new THREE.Box3().setFromObject(piece);
+        const worldCenter = new THREE.Vector3();
+        box.getCenter(worldCenter);
+        const localCenter = modelGroup.worldToLocal(worldCenter.clone());
+        if (localCenter.y > 0.30 && topLayer) {
+          topLayer.attach(piece);
+        } else if (localCenter.y < -0.30 && botLayer) {
+          botLayer.attach(piece);
+        } else if (midLayer) {
+          midLayer.attach(piece);
+        } else {
+          modelGroup.attach(piece);
+        }
+      });
+      if (pivot.parent) pivot.parent.remove(pivot);
+      modelGroup.updateMatrixWorld(true);
+      onComplete?.();
+    };
+
+    if (typeof requestAnimationFrame === 'undefined' || duration <= 0) {
+      pivot.rotateOnAxis(sliceAxis, sliceAngle);
+      pivot.updateMatrixWorld(true);
+      finalize();
+      return;
+    }
+
     const startTime = performance.now();
+    let currentAngle = 0;
 
     const step = (now) => {
-      const t = Math.min((now - startTime) / duration, 1.0);
-      const ease = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
-      modelGroup.quaternion.slerpQuaternions(startQ, targetQ, ease);
-      if (t < 1.0) {
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1.0);
+      const ease = progress < 0.5
+        ? 4 * progress * progress * progress
+        : 1 - Math.pow(-2 * progress + 2, 3) / 2;
+
+      const targetAngle = sliceAngle * ease;
+      const delta = targetAngle - currentAngle;
+      pivot.rotateOnAxis(sliceAxis, delta);
+      pivot.updateMatrixWorld(true);
+      currentAngle = targetAngle;
+
+      if (progress < 1.0) {
         requestAnimationFrame(step);
       } else {
-        modelGroup.quaternion.copy(targetQ);
-        modelGroup.updateMatrixWorld(true);
-        onComplete?.();
+        finalize();
       }
     };
+
     requestAnimationFrame(step);
     return;
   }

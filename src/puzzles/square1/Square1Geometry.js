@@ -64,6 +64,7 @@ function createSquare1PieceMesh({
   type, // 'kite' (corner) | 'triangle' (edge)
   startAngle,
   endAngle,
+  cornerAngle,
   L,
   yMin,
   yMax,
@@ -78,7 +79,9 @@ function createSquare1PieceMesh({
   const p2 = raySquareIntersect(endAngle, L);
 
   // If corner kite (60°), add corner vertex in between
-  const midAngle = (startAngle + endAngle) / 2;
+  const midAngle = cornerAngle !== null && cornerAngle !== undefined
+    ? (cornerAngle * Math.PI) / 180
+    : (startAngle + endAngle) / 2;
   const isKite = type === 'kite';
   const midCorner = isKite ? raySquareIntersect(midAngle, L) : null;
 
@@ -191,9 +194,9 @@ function createSquare1PieceMesh({
     const o1 = outerVerts[s + 1];
     const sideColor = sideColors[s] || COLOR_MAP.F;
 
-    // Normal of this side segment
+    // Normal of this side segment (outward pointing)
     const wallDir = new THREE.Vector2().subVectors(o1, o0).normalize();
-    const wallNormal = new THREE.Vector2(-wallDir.y, wallDir.x);
+    const wallNormal = new THREE.Vector2(wallDir.y, -wallDir.x);
 
     const insetW = 0.90;
     const midWall = new THREE.Vector2().addVectors(o0, o1).multiplyScalar(0.5);
@@ -263,28 +266,28 @@ export function buildSquare1Model(options = {}) {
   const botLayer = new THREE.Group();
   botLayer.name = 'layer-bottom';
 
-  // 8 Pieces per layer alternating Kite (60°) and Edge Triangle (30°) around 360°:
-  // Starts at -15° (Right/Front boundary)
-  // 0: Right Edge: -15° to 15° (30°) -> Right (+X: Red)
-  // 1: Top-Right Corner: 15° to 75° (60°) -> Right (+X: Red) and Front (+Z: Green)
-  // 2: Front Edge: 75° to 105° (30°) -> Front (+Z: Green)
-  // 3: Front-Left Corner: 105° to 165° (60°) -> Front (+Z: Green) and Left (-X: Orange)
-  // 4: Left Edge: 165° to 195° (30°) -> Left (-X: Orange)
-  // 5: Back-Left Corner: 195° to 255° (60°) -> Left (-X: Orange) and Back (-Z: Blue)
-  // 6: Back Edge: 255° to 285° (30°) -> Back (-Z: Blue)
-  // 7: Back-Right Corner: 285° to 345° (60°) -> Back (-Z: Blue) and Right (+X: Red)
+  // 8 Pieces per layer alternating Kite (60°) and Edge Triangle (30°) around 360°
+  // Starting at 0° (+X axis), with cut plane precisely at 90° (+Z) and 270° (-Z) along X = 0:
+  // 0: Corner Kite: 0° to 60° (corner at 45°) -> Right (+X: Red) and Front (+Z: Green)
+  // 1: Edge Triangle: 60° to 90° (30°) -> Front (+Z: Green)
+  // 2: Corner Kite: 90° to 150° (corner at 135°) -> Front (+Z: Green) and Left (-X: Orange)
+  // 3: Edge Triangle: 150° to 180° (30°) -> Left (-X: Orange)
+  // 4: Corner Kite: 180° to 240° (corner at 225°) -> Left (-X: Orange) and Back (-Z: Blue)
+  // 5: Edge Triangle: 240° to 270° (30°) -> Back (-Z: Blue)
+  // 6: Corner Kite: 270° to 330° (corner at 315°) -> Back (-Z: Blue) and Right (+X: Red)
+  // 7: Edge Triangle: 330° to 360° (30°) -> Right (+X: Red)
   const pieceConfigs = [
-    { type: 'triangle', span: 30, sideColors: [COLOR_MAP.R] },
-    { type: 'kite',     span: 60, sideColors: [COLOR_MAP.R, COLOR_MAP.F] },
-    { type: 'triangle', span: 30, sideColors: [COLOR_MAP.F] },
-    { type: 'kite',     span: 60, sideColors: [COLOR_MAP.F, COLOR_MAP.L] },
-    { type: 'triangle', span: 30, sideColors: [COLOR_MAP.L] },
-    { type: 'kite',     span: 60, sideColors: [COLOR_MAP.L, COLOR_MAP.B] },
-    { type: 'triangle', span: 30, sideColors: [COLOR_MAP.B] },
-    { type: 'kite',     span: 60, sideColors: [COLOR_MAP.B, COLOR_MAP.R] }
+    { type: 'kite',     span: 60, cornerAngle: 45,  sideColors: [COLOR_MAP.R, COLOR_MAP.F] },
+    { type: 'triangle', span: 30, cornerAngle: null, sideColors: [COLOR_MAP.F] },
+    { type: 'kite',     span: 60, cornerAngle: 135, sideColors: [COLOR_MAP.F, COLOR_MAP.L] },
+    { type: 'triangle', span: 30, cornerAngle: null, sideColors: [COLOR_MAP.L] },
+    { type: 'kite',     span: 60, cornerAngle: 225, sideColors: [COLOR_MAP.L, COLOR_MAP.B] },
+    { type: 'triangle', span: 30, cornerAngle: null, sideColors: [COLOR_MAP.B] },
+    { type: 'kite',     span: 60, cornerAngle: 315, sideColors: [COLOR_MAP.B, COLOR_MAP.R] },
+    { type: 'triangle', span: 30, cornerAngle: null, sideColors: [COLOR_MAP.R] }
   ];
 
-  let currentAngle = -15;
+  let currentAngle = 0;
 
   pieceConfigs.forEach((cfg, idx) => {
     const startRad = (currentAngle * Math.PI) / 180;
@@ -296,6 +299,7 @@ export function buildSquare1Model(options = {}) {
       type: cfg.type,
       startAngle: startRad,
       endAngle: endRad,
+      cornerAngle: cfg.cornerAngle,
       L,
       yMin: topYMin,
       yMax: topYMax,
@@ -311,6 +315,7 @@ export function buildSquare1Model(options = {}) {
       type: cfg.type,
       startAngle: startRad,
       endAngle: endRad,
+      cornerAngle: cfg.cornerAngle,
       L,
       yMin: botYMin,
       yMax: botYMax,

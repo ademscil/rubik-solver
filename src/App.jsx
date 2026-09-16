@@ -9,8 +9,10 @@ import CustomLayoutModal from './components/CustomLayoutModal';
 import NotationModal from './components/NotationModal';
 import PuzzleSelector from './components/PuzzleSelector';
 import { puzzleRegistry } from './puzzles/registry.js';
-import { parseAlgorithm as defaultParseAlg, getInverseMove as defaultGetInverse } from './cube/rubikNotation';
-import { generateScramble as defaultScramble } from './cube/presets';
+import { parseAlgorithm as defaultParseAlg, getInverseMove as defaultGetInverse } from './cube/rubikNotation.js';
+import { generateScramble as defaultScramble } from './cube/presets.js';
+import { generatePedagogicalLBLSolution, partitionMovesIntoStages } from './solvers/solverStages.js';
+import { getActiveStageInfo } from './solvers/lbl3x3Solver.js';
 
 export default function App() {
   const cubeRef = useRef(null);
@@ -32,6 +34,7 @@ export default function App() {
 
   // Timeline / Playback States
   const [activeMoves, setActiveMoves] = useState([]);
+  const [solutionStages, setSolutionStages] = useState([]);
   const [currentMoveIndex, setCurrentMoveIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
 
@@ -63,6 +66,7 @@ export default function App() {
     setScrambleHistory([]);
     scrambleHistoryRef.current = [];
     setActiveMoves([]);
+    setSolutionStages([]);
     setCurrentMoveIndex(0);
     currentMoveIndexRef.current = 0;
     setActiveCaseId(null);
@@ -303,36 +307,48 @@ export default function App() {
     else setHighlightMode('all');
   }, [currentPuzzle]);
 
-  // Scramble puzzle with automatic step-by-step solution preparation
+  // Scramble puzzle with automatic step-by-step pedagogical solution preparation
   const handleScramble = useCallback(() => {
     setIsPlaying(false);
     isPlayingRef.current = false;
-    if (cubeRef.current) {
-      cubeRef.current.resetCube();
-      const scrambleFn = currentPuzzle?.generateScramble || defaultScramble;
-      const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
-      const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
+    if (!cubeRef.current) return;
 
-      const scrambleLength = currentPuzzle?.category === 'shape' ? 12 : 20;
-      const scrambleStr = scrambleFn(scrambleLength);
-      const scrambleMoves = parseFn(scrambleStr);
+    cubeRef.current.resetCube();
 
-      // Compute step-by-step resolution algorithm (inverse sequence)
-      const solutionMoves = [...scrambleMoves].reverse().map(m => getInverseFn(m));
-
-      // Instantly apply scramble sequence to 3D model (zero queue, no animation lag)
-      cubeRef.current.applyMovesInstant(scrambleMoves);
-
-      // Populate solution into timeline for instant step-by-step solver readiness
-      setScrambleHistory(scrambleMoves);
-      scrambleHistoryRef.current = scrambleMoves;
+    if (currentPuzzleId === 'cube-3x3') {
+      const pedagogical = generatePedagogicalLBLSolution();
+      cubeRef.current.applyMovesInstant(pedagogical.scrambleMoves);
+      setScrambleHistory(pedagogical.scrambleMoves);
+      scrambleHistoryRef.current = pedagogical.scrambleMoves;
       setIsScrambled(true);
-      setActiveMoves(solutionMoves);
+      setActiveMoves(pedagogical.solutionMoves);
+      setSolutionStages(pedagogical.stages);
       setCurrentMoveIndex(0);
       currentMoveIndexRef.current = 0;
       setActiveCaseId('auto-solve-step-by-step');
+      return;
     }
-  }, [currentPuzzle]);
+
+    const scrambleFn = currentPuzzle?.generateScramble || defaultScramble;
+    const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
+    const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
+
+    const scrambleLength = currentPuzzle?.category === 'shape' ? 10 : 20;
+    const scrambleStr = scrambleFn(scrambleLength);
+    const scrambleMoves = parseFn(scrambleStr);
+    const solutionMoves = [...scrambleMoves].reverse().map(m => getInverseFn(m));
+    const stages = partitionMovesIntoStages(currentPuzzleId, solutionMoves);
+
+    cubeRef.current.applyMovesInstant(scrambleMoves);
+    setScrambleHistory(scrambleMoves);
+    scrambleHistoryRef.current = scrambleMoves;
+    setIsScrambled(true);
+    setActiveMoves(solutionMoves);
+    setSolutionStages(stages);
+    setCurrentMoveIndex(0);
+    currentMoveIndexRef.current = 0;
+    setActiveCaseId('auto-solve-step-by-step');
+  }, [currentPuzzle, currentPuzzleId]);
 
   // Step-by-Step Solver: Plays or steps through resolution
   const handleSolveStepByStep = useCallback(() => {
@@ -372,6 +388,7 @@ export default function App() {
     setScrambleHistory([]);
     scrambleHistoryRef.current = [];
     setActiveMoves([]);
+    setSolutionStages([]);
     setCurrentMoveIndex(0);
     currentMoveIndexRef.current = 0;
     setActiveCaseId(null);
@@ -395,7 +412,9 @@ export default function App() {
         scrambleHistoryRef.current = next;
         // Compute solution as inverse sequence of all moves performed
         const solutionMoves = [...next].reverse().map((m) => getInverseFn(m));
+        const stages = partitionMovesIntoStages(currentPuzzleId, solutionMoves);
         setActiveMoves(solutionMoves);
+        setSolutionStages(stages);
         setCurrentMoveIndex(0);
         currentMoveIndexRef.current = 0;
         setIsScrambled(true);
@@ -403,7 +422,9 @@ export default function App() {
         return next;
       });
     });
-  }, [currentPuzzle]);
+  }, [currentPuzzle, currentPuzzleId]);
+
+  const currentActiveStage = getActiveStageInfo(solutionStages, currentMoveIndex);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
@@ -426,32 +447,42 @@ export default function App() {
       <div className="flex-1 flex flex-col md:flex-row relative min-h-0 min-w-0 overflow-hidden">
         {/* 3D Viewport Container */}
         <main className="flex-1 relative flex flex-col min-h-0 min-w-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 overflow-hidden">
-          {/* Quick Solve Floating Banner when Puzzle is Scrambled */}
+          {/* Pedagogical Stage Progress Card when Puzzle is Scrambled / Solving */}
           {isScrambled && (
-            <div className="absolute top-16 left-4 z-20 flex items-center justify-between gap-3 bg-slate-900/95 border border-emerald-500/50 backdrop-blur-md rounded-2xl px-4 py-2 shadow-xl shadow-emerald-950/40">
-              <div className="flex items-center gap-2.5">
-                <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                  <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
-                </div>
-                <div>
-                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
-                    <span>Puzzle Diacak</span>
-                    <span className="text-[10px] bg-emerald-500/25 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold">
-                      {activeMoves.length} langkah
-                    </span>
+            <div className="absolute top-3 left-3 z-20 flex flex-col gap-1.5 bg-slate-900/95 border border-emerald-500/50 backdrop-blur-md rounded-2xl p-2.5 sm:p-3 shadow-xl shadow-emerald-950/40 max-w-[calc(100%-180px)] sm:max-w-md">
+              <div className="flex items-center justify-between gap-2.5">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                    <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
                   </div>
-                  <div className="text-[11px] text-slate-300">
-                    Siap diselesaikan langkah demi langkah
+                  <div className="min-w-0">
+                    <div className="text-xs font-bold text-white flex items-center gap-1.5 truncate">
+                      <span>{currentActiveStage ? currentActiveStage.badge : 'Puzzle Diacak'}</span>
+                      <span className="text-[10px] bg-emerald-500/25 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold shrink-0">
+                        {currentMoveIndex}/{activeMoves.length}
+                      </span>
+                    </div>
+                    <div className="text-[11px] text-emerald-300 font-medium truncate">
+                      {currentActiveStage ? currentActiveStage.title : 'Siap diselesaikan langkah demi langkah'}
+                    </div>
                   </div>
                 </div>
+
+                <button
+                  onClick={handleSolveStepByStep}
+                  className="px-3 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all active:scale-95 shrink-0 whitespace-nowrap"
+                >
+                  <Play className="w-3.5 h-3.5 fill-white" />
+                  <span>{isPlaying ? 'Jeda' : 'Selesaikan'}</span>
+                </button>
               </div>
-              <button
-                onClick={handleSolveStepByStep}
-                className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all active:scale-95 whitespace-nowrap"
-              >
-                <Play className="w-3.5 h-3.5 fill-white" />
-                <span>{isPlaying ? 'Jeda' : 'Selesaikan'}</span>
-              </button>
+
+              {currentActiveStage && currentActiveStage.formulaName && (
+                <div className="text-[10px] text-slate-300 bg-slate-950/60 rounded-lg px-2 py-0.5 flex items-center gap-1.5 border border-slate-800/80">
+                  <span className="text-emerald-400 font-semibold shrink-0">Rumus:</span>
+                  <span className="font-mono text-white truncate">{currentActiveStage.formulaName}</span>
+                </div>
+              )}
             </div>
           )}
 
@@ -467,6 +498,7 @@ export default function App() {
           <PlaybackBar
             puzzle={currentPuzzle}
             moves={activeMoves}
+            stages={solutionStages}
             currentMoveIndex={currentMoveIndex}
             isPlaying={isPlaying}
             speed={speed}

@@ -333,41 +333,41 @@ const RubikViewer = forwardRef(function RubikViewer({
 
   return (
     <div className="flex-1 w-full min-h-0 relative select-none overflow-hidden" ref={mountRef}>
-      {/* Overlay Tombol Kamera Cepat & Helper */}
-      <div className="absolute top-4 left-4 z-10 flex flex-wrap items-center gap-2 pointer-events-auto">
-        <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-xl p-1 flex items-center shadow-lg">
+      {/* Overlay Tombol Kamera Cepat & Helper (Diposisikan di Pojok Kanan Atas agar Tidak Overlap) */}
+      <div className="absolute top-3 right-3 z-10 flex flex-wrap items-center justify-end gap-2 pointer-events-auto">
+        <div className="bg-slate-900/85 backdrop-blur-md border border-slate-700/60 rounded-xl p-1 flex items-center shadow-lg">
           <span className="text-xs font-semibold px-2 text-slate-400">Sudut:</span>
           <button
             onClick={() => resetCamera('isometric')}
-            className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            className="px-2 py-1 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
           >
             3D Iso
           </button>
           <button
             onClick={() => resetCamera('front')}
-            className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            className="px-2 py-1 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
           >
             Depan
           </button>
           <button
             onClick={() => resetCamera('top')}
-            className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            className="px-2 py-1 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
           >
             Atas
           </button>
           <button
             onClick={() => resetCamera('right')}
-            className="px-2.5 py-1 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
+            className="px-2 py-1 text-xs font-medium text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition-colors"
           >
             Kanan
           </button>
         </div>
 
         {/* Indikator Status Mode */}
-        <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-xl px-3 py-1.5 flex items-center gap-2 shadow-lg">
+        <div className="bg-slate-900/85 backdrop-blur-md border border-slate-700/60 rounded-xl px-2.5 py-1.5 flex items-center gap-1.5 shadow-lg">
           <div className={`w-2 h-2 rounded-full ${isInspectMode ? 'bg-sky-400 animate-pulse' : 'bg-amber-400'}`} />
-          <span className="text-xs font-medium text-slate-300">
-            {isInspectMode ? 'Mode Amati (Orbit 360°)' : 'Mode Putar'}
+          <span className="text-xs font-medium text-slate-300 hidden sm:inline">
+            {isInspectMode ? 'Orbit 360°' : 'Putar Layer'}
           </span>
         </div>
       </div>
