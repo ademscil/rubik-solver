@@ -217,8 +217,8 @@ export function buildMegaminxModel(options = {}) {
     group.add(faceGroup);
   });
 
-  // Internal Core Dodecahedral Body
-  const coreGeom = new THREE.DodecahedronGeometry(radius * 0.95, 0);
+  // Internal Core Dodecahedral Body kept strictly inside face in-radius
+  const coreGeom = new THREE.DodecahedronGeometry(radius * 0.72, 0);
   const coreMat = new THREE.MeshStandardMaterial({ color: CORE_COLOR, roughness: 0.85, metalness: 0.05 });
   const coreMesh = new THREE.Mesh(coreGeom, coreMat);
   coreMesh.name = 'megaminx-core';

@@ -305,7 +305,7 @@ const RubikViewer = forwardRef(function RubikViewer({
   }));
 
   return (
-    <div className="relative w-full h-full select-none overflow-hidden" ref={mountRef}>
+    <div className="flex-1 w-full min-h-0 relative select-none overflow-hidden" ref={mountRef}>
       {/* Overlay Tombol Kamera Cepat & Helper */}
       <div className="absolute top-4 left-4 z-10 flex flex-wrap items-center gap-2 pointer-events-auto">
         <div className="bg-slate-900/80 backdrop-blur-md border border-slate-700/60 rounded-xl p-1 flex items-center shadow-lg">
@@ -343,13 +343,6 @@ const RubikViewer = forwardRef(function RubikViewer({
             {isInspectMode ? 'Mode Amati (Orbit 360°)' : 'Mode Putar'}
           </span>
         </div>
-      </div>
-
-      {/* Watermark Logo Dinamis Puzzle di Sudut Bawah */}
-      <div className="absolute bottom-4 left-4 z-10 pointer-events-none opacity-40 hover:opacity-100 transition-opacity">
-        <span className="text-xs font-mono font-bold tracking-widest text-slate-500 uppercase">
-          {puzzle?.name || "Twisty Puzzle 3D"}
-        </span>
       </div>
     </div>
   );

@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Eye, RotateCw, Shuffle, RotateCcw, HelpCircle, Palette, Box, ChevronDown, Layers } from 'lucide-react';
+import { Eye, RotateCw, Shuffle, RotateCcw, HelpCircle, Palette, Box, ChevronDown, Layers, Sparkles } from 'lucide-react';
 
 export default function Header({
   puzzle,
@@ -7,6 +7,8 @@ export default function Header({
   onToggleInspectMode,
   onOpenPuzzleSelector,
   onScramble,
+  onSolve,
+  isScrambled = false,
   onResetCube,
   onOpenNotationModal,
   onOpenCustomLayout,
@@ -148,6 +150,20 @@ export default function Header({
           >
             <Shuffle className="w-3.5 h-3.5 text-amber-400" />
             <span className="hidden sm:inline">Acak</span>
+          </button>
+
+          {/* Selesaikan Step-by-Step Button */}
+          <button
+            onClick={onSolve}
+            className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 border transition-all shadow-md active:scale-95 ${
+              isScrambled
+                ? 'bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white border-emerald-400/50 shadow-emerald-500/25 animate-pulse'
+                : 'bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+            }`}
+            title="Selesaikan Puzzle secara otomatis langkah demi langkah"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-300" />
+            <span className="hidden sm:inline">Selesaikan</span>
           </button>
 
           {/* Reset Cube Button */}

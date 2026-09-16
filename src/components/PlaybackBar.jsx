@@ -33,7 +33,7 @@ export default function PlaybackBar({
   const currentInfo = currentMove ? resolveMoveInfo(currentMove) : null;
 
   return (
-    <div className="bg-slate-900/90 backdrop-blur-xl border-t border-slate-800/80 px-4 py-3 text-white shadow-2xl flex flex-col gap-2.5 w-full min-w-0 overflow-hidden">
+    <div className="bg-slate-900/95 backdrop-blur-xl border-t border-slate-800/80 px-4 py-3 text-white shadow-2xl flex flex-col gap-2.5 w-full min-w-0 shrink-0 z-20">
       {/* Move Timeline Scroller */}
       {moves.length > 0 && (
         <div className="flex items-center gap-2 overflow-x-auto pb-1.5 scrollbar-thin">

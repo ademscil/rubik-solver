@@ -126,9 +126,9 @@ export function buildSkewbModel(options = {}) {
     group.add(faceGroup);
   });
 
-  // Core cube
-  const coreGeom = new THREE.BoxGeometry(size * 1.8, size * 1.8, size * 1.8);
-  const coreMat = new THREE.MeshStandardMaterial({ color: CORE_COLOR, roughness: 0.8 });
+  // Core cube kept strictly inside facets
+  const coreGeom = new THREE.BoxGeometry(size * 1.15, size * 1.15, size * 1.15);
+  const coreMat = new THREE.MeshStandardMaterial({ color: CORE_COLOR, roughness: 0.85, metalness: 0.1 });
   const core = new THREE.Mesh(coreGeom, coreMat);
   core.name = 'skewb-core';
   group.add(core);

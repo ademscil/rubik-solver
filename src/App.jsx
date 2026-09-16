@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import confetti from 'canvas-confetti';
+import { Sparkles, Play } from 'lucide-react';
 import RubikViewer from './components/RubikViewer';
 import Header from './components/Header';
 import PlaybackBar from './components/PlaybackBar';
@@ -17,6 +18,9 @@ export default function App() {
   // Active Puzzle State
   const [currentPuzzleId, setCurrentPuzzleId] = useState('cube-3x3');
   const [currentPuzzle, setCurrentPuzzle] = useState(null);
+
+  // Scramble / Auto-Solver State
+  const [isScrambled, setIsScrambled] = useState(false);
 
   // Viewport / Inspection States
   const [isInspectMode, setIsInspectMode] = useState(true);
@@ -96,6 +100,7 @@ export default function App() {
         // Algorithm completed
         setCurrentMoveIndex(total);
         setIsPlaying(false);
+        setIsScrambled(false);
         try {
           confetti({
             particleCount: 75,
@@ -229,26 +234,63 @@ export default function App() {
     else setHighlightMode('all');
   }, [currentPuzzle]);
 
-  // Scramble puzzle
+  // Scramble puzzle with automatic step-by-step solution preparation
   const handleScramble = useCallback(() => {
     setIsPlaying(false);
     if (cubeRef.current) {
       cubeRef.current.resetCube();
       const scrambleFn = currentPuzzle?.generateScramble || defaultScramble;
       const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
-      const scrambleStr = scrambleFn(25);
-      const moves = parseFn(scrambleStr);
-      moves.forEach(m => cubeRef.current.makeMove(m));
-      setActiveMoves([]);
+      const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
+
+      const scrambleLength = currentPuzzle?.category === 'shape' ? 12 : 20;
+      const scrambleStr = scrambleFn(scrambleLength);
+      const scrambleMoves = parseFn(scrambleStr);
+
+      // Compute step-by-step resolution algorithm (inverse sequence)
+      const solutionMoves = [...scrambleMoves].reverse().map(m => getInverseFn(m));
+
+      // Apply scramble sequence to 3D cube model
+      scrambleMoves.forEach(m => cubeRef.current.makeMove(m));
+
+      // Populate solution into timeline for instant step-by-step solver readiness
+      setIsScrambled(true);
+      setActiveMoves(solutionMoves);
       setCurrentMoveIndex(0);
+      setActiveCaseId('auto-solve-step-by-step');
     }
   }, [currentPuzzle]);
+
+  // Step-by-Step Solver: Plays or steps through resolution
+  const handleSolveStepByStep = useCallback(() => {
+    if (activeMoves.length === 0) {
+      handleScramble();
+      return;
+    }
+
+    if (!isPlaying) {
+      let startIdx = currentMoveIndex;
+      if (startIdx >= activeMoves.length) {
+        startIdx = 0;
+        setCurrentMoveIndex(0);
+      }
+      setIsPlaying(true);
+      const move = activeMoves[startIdx];
+      if (cubeRef.current && move) {
+        cubeRef.current.makeMove(move, handleMoveComplete);
+      }
+    } else {
+      setIsPlaying(false);
+    }
+  }, [activeMoves, currentMoveIndex, isPlaying, handleMoveComplete, handleScramble]);
 
   // Reset puzzle to solved state
   const handleResetCube = useCallback(() => {
     setIsPlaying(false);
+    setIsScrambled(false);
     setActiveMoves([]);
     setCurrentMoveIndex(0);
+    setActiveCaseId(null);
     setHighlightMode('all');
     if (cubeRef.current) {
       cubeRef.current.resetCube();
@@ -272,6 +314,8 @@ export default function App() {
         onToggleInspectMode={() => setIsInspectMode(!isInspectMode)}
         onOpenPuzzleSelector={() => setIsPuzzleSelectorOpen(true)}
         onScramble={handleScramble}
+        onSolve={handleSolveStepByStep}
+        isScrambled={isScrambled}
         onResetCube={handleResetCube}
         onOpenNotationModal={() => setIsNotationModalOpen(true)}
         onOpenCustomLayout={() => setIsCustomLayoutOpen(true)}
@@ -279,9 +323,38 @@ export default function App() {
       />
 
       {/* Main Content: 3D Viewport + Guide Sidebar */}
-      <div className="flex-1 flex flex-col md:flex-row relative overflow-hidden">
+      <div className="flex-1 flex flex-col md:flex-row relative min-h-0 min-w-0 overflow-hidden">
         {/* 3D Viewport Container */}
-        <main className="flex-1 relative flex flex-col min-h-0 min-w-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950">
+        <main className="flex-1 relative flex flex-col min-h-0 min-w-0 bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 overflow-hidden">
+          {/* Quick Solve Floating Banner when Puzzle is Scrambled */}
+          {isScrambled && (
+            <div className="absolute top-16 left-4 z-20 flex items-center justify-between gap-3 bg-slate-900/95 border border-emerald-500/50 backdrop-blur-md rounded-2xl px-4 py-2 shadow-xl shadow-emerald-950/40">
+              <div className="flex items-center gap-2.5">
+                <div className="p-1.5 rounded-xl bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  <Sparkles className="w-4 h-4 text-emerald-400 animate-pulse" />
+                </div>
+                <div>
+                  <div className="text-xs font-bold text-white flex items-center gap-1.5">
+                    <span>Puzzle Diacak</span>
+                    <span className="text-[10px] bg-emerald-500/25 text-emerald-300 px-1.5 py-0.2 rounded font-mono font-bold">
+                      {activeMoves.length} langkah
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-300">
+                    Siap diselesaikan langkah demi langkah
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={handleSolveStepByStep}
+                className="px-3.5 py-1.5 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-500/20 flex items-center gap-1.5 transition-all active:scale-95 whitespace-nowrap"
+              >
+                <Play className="w-3.5 h-3.5 fill-white" />
+                <span>{isPlaying ? 'Jeda' : 'Selesaikan'}</span>
+              </button>
+            </div>
+          )}
+
           <RubikViewer
             ref={cubeRef}
             puzzle={currentPuzzle}
