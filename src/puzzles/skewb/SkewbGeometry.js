@@ -2,9 +2,11 @@
  * src/puzzles/skewb/SkewbGeometry.js
  * 3D Geometry Generator for Skewb (Corner-Turning Cube)
  * 
- * Skewb is a deep-cut corner-turning cube with:
- * - 6 center pieces (one per face)
- * - 8 corner pieces
+ * Anatomy:
+ * - 6 square faces covering the entire cube $[-L, L]^3$
+ * - On each face: 1 center square/diamond + 4 corner triangles = 5 facets per face
+ * - 6 faces * 5 facets = exactly 30 facets total
+ * - Solid black plastic body beneath stickers with crisp, uniform borders
  */
 
 import * as THREE from 'three';
@@ -23,11 +25,10 @@ const COLOR_HEX = {
   B: 0x0051FF, R: 0xFF0000, L: 0xFF8C00
 };
 
-const CORE_COLOR = 0x1a1a2e;
+const PLASTIC_COLOR = 0x181820;
 
 /**
- * Build a Skewb 3D model
- * Represented as a cube with diagonal cuts through corners
+ * Build mathematically exact Skewb 3D model
  * @param {Object} [options]
  * @returns {THREE.Group}
  */
@@ -40,10 +41,22 @@ export function buildSkewbModel(options = {}) {
     pieces: []
   };
 
-  const size = options.size || 1.5;
-  const gap = 0.03;
+  const L = options.size || 1.35; // Half-size of the cube
+  const normalOffset = 0.012;     // Elevation above black plastic body to prevent z-fighting
+  const insetFactor = 0.91;       // Inset stickers slightly for realistic black vinyl grooves
 
-  // Build 6 faces, each with 5 pieces (1 center square + 4 corner triangles)
+  // 1. Build solid black plastic cube body
+  const bodyGeom = new THREE.BoxGeometry(L * 2, L * 2, L * 2);
+  const bodyMat = new THREE.MeshStandardMaterial({
+    color: PLASTIC_COLOR,
+    roughness: 0.85,
+    metalness: 0.1
+  });
+  const bodyMesh = new THREE.Mesh(bodyGeom, bodyMat);
+  bodyMesh.name = 'skewb-body';
+  group.add(bodyMesh);
+
+  // 2. Build 6 faces with 1 center diamond + 4 corner triangles per face
   const faceConfigs = [
     { id: 'U', normal: [0, 1, 0], up: [0, 0, -1], color: COLOR_HEX.U },
     { id: 'D', normal: [0, -1, 0], up: [0, 0, 1], color: COLOR_HEX.D },
@@ -64,60 +77,71 @@ export function buildSkewbModel(options = {}) {
       r.negate();
     }
 
-    const center = n.clone().multiplyScalar(size);
-    const halfSize = size * 0.45;
+    const faceCenter = n.clone().multiplyScalar(L);
+    const stickerMat = new THREE.MeshStandardMaterial({
+      color: face.color,
+      roughness: 0.28,
+      metalness: 0.08,
+      side: THREE.DoubleSide
+    });
 
-    // Center diamond/square (rotated 45 degrees)
-    const centerSize = halfSize * 0.7;
-    const diamondVerts = [
-      center.clone().add(u.clone().multiplyScalar(centerSize)),
-      center.clone().add(r.clone().multiplyScalar(centerSize)),
-      center.clone().add(u.clone().multiplyScalar(-centerSize)),
-      center.clone().add(r.clone().multiplyScalar(-centerSize))
-    ];
+    // 4 Midpoints of the face edges (connect to form center diamond)
+    const M0 = faceCenter.clone().add(u.clone().multiplyScalar(L));
+    const M1 = faceCenter.clone().add(r.clone().multiplyScalar(L));
+    const M2 = faceCenter.clone().add(u.clone().multiplyScalar(-L));
+    const M3 = faceCenter.clone().add(r.clone().multiplyScalar(-L));
+
+    // 4 Corners of the face
+    const C0 = faceCenter.clone().add(u.clone().multiplyScalar(L)).add(r.clone().multiplyScalar(L));
+    const C1 = faceCenter.clone().add(u.clone().multiplyScalar(-L)).add(r.clone().multiplyScalar(L));
+    const C2 = faceCenter.clone().add(u.clone().multiplyScalar(-L)).add(r.clone().multiplyScalar(-L));
+    const C3 = faceCenter.clone().add(u.clone().multiplyScalar(L)).add(r.clone().multiplyScalar(-L));
+
+    // 1. Center Diamond Sticker
+    const dCenter = faceCenter.clone().addScaledVector(n, normalOffset);
+    const d0 = new THREE.Vector3().lerpVectors(faceCenter, M0, insetFactor).addScaledVector(n, normalOffset);
+    const d1 = new THREE.Vector3().lerpVectors(faceCenter, M1, insetFactor).addScaledVector(n, normalOffset);
+    const d2 = new THREE.Vector3().lerpVectors(faceCenter, M2, insetFactor).addScaledVector(n, normalOffset);
+    const d3 = new THREE.Vector3().lerpVectors(faceCenter, M3, insetFactor).addScaledVector(n, normalOffset);
 
     const diamondGeom = new THREE.BufferGeometry();
     const dv = new Float32Array([
-      ...diamondVerts[0].toArray(), ...diamondVerts[1].toArray(), ...diamondVerts[2].toArray(),
-      ...diamondVerts[0].toArray(), ...diamondVerts[2].toArray(), ...diamondVerts[3].toArray()
+      d0.x, d0.y, d0.z,  d1.x, d1.y, d1.z,  d2.x, d2.y, d2.z,
+      d0.x, d0.y, d0.z,  d2.x, d2.y, d2.z,  d3.x, d3.y, d3.z
     ]);
     diamondGeom.setAttribute('position', new THREE.BufferAttribute(dv, 3));
     diamondGeom.computeVertexNormals();
 
-    const centerMat = new THREE.MeshStandardMaterial({
-      color: face.color, roughness: 0.3, metalness: 0.1, side: THREE.DoubleSide
-    });
-    const centerMesh = new THREE.Mesh(diamondGeom, centerMat);
+    const centerMesh = new THREE.Mesh(diamondGeom, stickerMat);
     centerMesh.name = `center-${face.id}`;
     centerMesh.userData = { faceId: face.id, pieceType: 'center' };
     faceGroup.add(centerMesh);
 
-    // 4 corner triangles
-    const corners = [
-      { dir: [1, 1], verts: [0, 1] },   // Top-Right
-      { dir: [-1, 1], verts: [1, 2] },   // Bottom-Right
-      { dir: [-1, -1], verts: [2, 3] },  // Bottom-Left
-      { dir: [1, -1], verts: [3, 0] }    // Top-Left
+    // 2. 4 Corner Triangles
+    const cornerDefs = [
+      { corner: C0, e1: M0, e2: M1, idx: 0 }, // Top-Right
+      { corner: C1, e1: M1, e2: M2, idx: 1 }, // Bottom-Right
+      { corner: C2, e1: M2, e2: M3, idx: 2 }, // Bottom-Left
+      { corner: C3, e1: M3, e2: M0, idx: 3 }  // Top-Left
     ];
 
-    corners.forEach((corner, idx) => {
-      const cornerPoint = center.clone()
-        .add(u.clone().multiplyScalar(halfSize * corner.dir[0]))
-        .add(r.clone().multiplyScalar(halfSize * corner.dir[1]));
+    cornerDefs.forEach(({ corner, e1, e2, idx }) => {
+      const triCenter = new THREE.Vector3().add(corner).add(e1).add(e2).divideScalar(3);
+
+      const t0 = new THREE.Vector3().lerpVectors(triCenter, corner, insetFactor).addScaledVector(n, normalOffset);
+      const t1 = new THREE.Vector3().lerpVectors(triCenter, e1, insetFactor).addScaledVector(n, normalOffset);
+      const t2 = new THREE.Vector3().lerpVectors(triCenter, e2, insetFactor).addScaledVector(n, normalOffset);
 
       const triGeom = new THREE.BufferGeometry();
       const tv = new Float32Array([
-        ...diamondVerts[corner.verts[0]].toArray(),
-        ...cornerPoint.toArray(),
-        ...diamondVerts[corner.verts[1]].toArray()
+        t0.x, t0.y, t0.z,
+        t1.x, t1.y, t1.z,
+        t2.x, t2.y, t2.z
       ]);
       triGeom.setAttribute('position', new THREE.BufferAttribute(tv, 3));
       triGeom.computeVertexNormals();
 
-      const triMat = new THREE.MeshStandardMaterial({
-        color: face.color, roughness: 0.3, metalness: 0.1, side: THREE.DoubleSide
-      });
-      const triMesh = new THREE.Mesh(triGeom, triMat);
+      const triMesh = new THREE.Mesh(triGeom, stickerMat);
       triMesh.name = `corner-${face.id}-${idx}`;
       triMesh.userData = { faceId: face.id, pieceType: 'corner', cornerIndex: idx };
       faceGroup.add(triMesh);
@@ -126,14 +150,6 @@ export function buildSkewbModel(options = {}) {
     group.add(faceGroup);
   });
 
-  // Core cube kept strictly inside facets
-  const coreGeom = new THREE.BoxGeometry(size * 1.15, size * 1.15, size * 1.15);
-  const coreMat = new THREE.MeshStandardMaterial({ color: CORE_COLOR, roughness: 0.85, metalness: 0.1 });
-  const core = new THREE.Mesh(coreGeom, coreMat);
-  core.name = 'skewb-core';
-  group.add(core);
-
   group.updateMatrixWorld(true);
   return group;
 }
-

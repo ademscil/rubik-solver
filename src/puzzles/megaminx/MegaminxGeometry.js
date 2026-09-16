@@ -3,10 +3,10 @@
  * 3D Geometry Generator for Megaminx (Regular Dodecahedron)
  * 
  * Anatomy:
- * - 12 regular pentagonal faces
- * - 20 corners, 30 edges, 12 centers (62 pieces)
- * - 11 stickers per face = 132 total stickers
- * - Golden ratio phi based face normals & vertices
+ * - 12 regular pentagonal faces seamlessly meeting along 30 edges
+ * - On each face: 1 center pentagon + 5 edge trapezoids + 5 corner kites = 11 stickers
+ * - 12 faces * 11 stickers = exactly 132 stickers total
+ * - Solid black dodecahedral plastic body with clean vinyl borders
  */
 
 import * as THREE from 'three';
@@ -26,10 +26,7 @@ export const MEGAMINX_COLORS = Object.freeze({
   CREAM: '#FFF9C4',      // Face 12 (Opposite F)
 });
 
-const CORE_COLOR = 0x121215;
-
-/** Golden ratio phi = (1 + sqrt(5)) / 2 */
-const PHI = (1 + Math.sqrt(5)) / 2;
+const PLASTIC_COLOR = 0x16161e;
 
 /**
  * Generates the 12 face normal unit vectors for a regular dodecahedron
@@ -57,7 +54,7 @@ export function getMegaminxFaceNormals() {
   // Bottom face D (opposite U)
   normals.push(new THREE.Vector3(0, -1, 0));
 
-  // 5 lower tier faces surrounding D (opposite to upper tier rotated by 36°)
+  // 5 lower tier faces surrounding D (rotated by 36° relative to upper tier)
   for (let i = 0; i < 5; i++) {
     const theta = (2 * Math.PI * i) / 5 - Math.PI / 2 + Math.PI / 5;
     normals.push(new THREE.Vector3(
@@ -78,15 +75,15 @@ export const MEGAMINX_FACE_SPECS = [
   { id: 'BR', name: 'Back-Right (Yellow)',   colorHex: MEGAMINX_COLORS.YELLOW,      axisIndex: 4 },
   { id: 'FR', name: 'Front-Right (Purple)',  colorHex: MEGAMINX_COLORS.PURPLE,      axisIndex: 5 },
   { id: 'D',  name: 'Bottom (Grey)',         colorHex: MEGAMINX_COLORS.GREY,        axisIndex: 6 },
-  { id: 'B',  name: 'Back (Pink)',           colorHex: MEGAMINX_COLORS.PINK,        axisIndex: 7 },
-  { id: 'DL', name: 'Down-Left (Light Blue)',colorHex: MEGAMINX_COLORS.LIGHT_BLUE, axisIndex: 8 },
-  { id: 'UL', name: 'Up-Left (Light Green)', colorHex: MEGAMINX_COLORS.LIGHT_GREEN,axisIndex: 9 },
-  { id: 'UR', name: 'Up-Right (Cream)',      colorHex: MEGAMINX_COLORS.CREAM,       axisIndex: 10 },
-  { id: 'DR', name: 'Down-Right (Orange)',   colorHex: MEGAMINX_COLORS.ORANGE,      axisIndex: 11 }
+  { id: 'BL2',name: 'Bottom-Left (Pink)',    colorHex: MEGAMINX_COLORS.PINK,        axisIndex: 7 },
+  { id: 'BR2',name: 'Bottom-Right (L-Blue)', colorHex: MEGAMINX_COLORS.LIGHT_BLUE,  axisIndex: 8 },
+  { id: 'B2', name: 'Back (Orange)',         colorHex: MEGAMINX_COLORS.ORANGE,      axisIndex: 9 },
+  { id: 'FL2',name: 'Front-Left2 (L-Green)', colorHex: MEGAMINX_COLORS.LIGHT_GREEN, axisIndex: 10 },
+  { id: 'F2', name: 'Front2 (Cream)',        colorHex: MEGAMINX_COLORS.CREAM,       axisIndex: 11 }
 ];
 
 /**
- * Builds a 3D model of Megaminx with 12 faces and 11 stickers per face (132 stickers total).
+ * Builds mathematically seamless Megaminx 3D model with 132 stickers across 12 faces
  * @param {Object} [options]
  * @returns {THREE.Group}
  */
@@ -95,45 +92,113 @@ export function buildMegaminxModel(options = {}) {
   group.name = 'megaminx-model';
   group.userData = {
     puzzleType: 'megaminx',
-    faceCount: 12,
+    isMegaminx: true,
+    facesCount: 12,
+    stickersPerFace: 11,
     totalStickers: 132,
-    phi: PHI
+    pieces: []
   };
 
-  const radius = options.radius || 2.2;
-  const normals = getMegaminxFaceNormals();
+  const radius = options.radius || 2.2; // In-radius (distance from origin to face plane)
+  const faceNormals = getMegaminxFaceNormals();
+  const normalOffset = 0.015; // Elevation above black plastic body
 
-  MEGAMINX_FACE_SPECS.forEach((faceSpec, faceIdx) => {
-    const faceNormal = normals[faceSpec.axisIndex];
-    const faceGroup = new THREE.Group();
-    faceGroup.name = `megaminx-face-${faceSpec.id}`;
-    faceGroup.userData = { faceId: faceSpec.id, faceIndex: faceIdx };
+  // Outer circumradius of pentagon face = radius * 0.7639
+  const rPentagon = radius * 0.764;
+  const rEdgeMid = rPentagon * Math.cos(Math.PI / 5); // 0.809 * rPentagon
 
-    // Orthonormal basis on the face tangent plane
+  // Proportions of internal stickers
+  const rCenter = rPentagon * 0.40;
+  const rInner = rPentagon * 0.44;
+  const rCornerOuter = rPentagon * 0.94;
+  const rEdgeOuter = rEdgeMid * 0.94;
+  const rSideMid = rEdgeMid * 0.85;
+
+  // 1. Build solid black dodecahedral plastic body
+  // Each pentagonal face is created from 3 triangles
+  const bodyGeom = new THREE.BufferGeometry();
+  const bodyPositions = [];
+  const bodyNormals = [];
+
+  faceNormals.forEach((faceNormal) => {
     let up = new THREE.Vector3(0, 1, 0);
     if (Math.abs(faceNormal.y) > 0.95) {
       up = new THREE.Vector3(0, 0, -1);
     }
     const tangentV = new THREE.Vector3().crossVectors(faceNormal, up).normalize();
     const tangentU = new THREE.Vector3().crossVectors(faceNormal, tangentV).normalize();
-
     const faceCenter = faceNormal.clone().multiplyScalar(radius);
+
+    const pentVerts = [];
+    for (let k = 0; k < 5; k++) {
+      const angle = (2 * Math.PI * k) / 5 - Math.PI / 2;
+      pentVerts.push(
+        faceCenter.clone()
+          .addScaledVector(tangentU, rPentagon * Math.cos(angle))
+          .addScaledVector(tangentV, rPentagon * Math.sin(angle))
+      );
+    }
+
+    // Triangulate pentagon (fan from v0)
+    for (let k = 1; k < 4; k++) {
+      bodyPositions.push(
+        pentVerts[0].x, pentVerts[0].y, pentVerts[0].z,
+        pentVerts[k].x, pentVerts[k].y, pentVerts[k].z,
+        pentVerts[k + 1].x, pentVerts[k + 1].y, pentVerts[k + 1].z
+      );
+      for (let j = 0; j < 3; j++) {
+        bodyNormals.push(faceNormal.x, faceNormal.y, faceNormal.z);
+      }
+    }
+  });
+
+  bodyGeom.setAttribute('position', new THREE.Float32BufferAttribute(bodyPositions, 3));
+  bodyGeom.setAttribute('normal', new THREE.Float32BufferAttribute(bodyNormals, 3));
+
+  const bodyMat = new THREE.MeshStandardMaterial({
+    color: PLASTIC_COLOR,
+    roughness: 0.85,
+    metalness: 0.08
+  });
+  const bodyMesh = new THREE.Mesh(bodyGeom, bodyMat);
+  bodyMesh.name = 'megaminx-body';
+  group.add(bodyMesh);
+
+  // 2. Build 11 stickers per face on top of the black body
+  MEGAMINX_FACE_SPECS.forEach((faceSpec, faceIdx) => {
+    const faceNormal = faceNormals[faceIdx];
+    const faceGroup = new THREE.Group();
+    faceGroup.name = `face-${faceSpec.id}`;
+    faceGroup.userData = { faceId: faceSpec.id, faceIndex: faceIdx };
+
+    let up = new THREE.Vector3(0, 1, 0);
+    if (Math.abs(faceNormal.y) > 0.95) {
+      up = new THREE.Vector3(0, 0, -1);
+    }
+    const tangentV = new THREE.Vector3().crossVectors(faceNormal, up).normalize();
+    const tangentU = new THREE.Vector3().crossVectors(faceNormal, tangentV).normalize();
+    const faceCenter = faceNormal.clone().multiplyScalar(radius);
+
     const stickerMat = new THREE.MeshStandardMaterial({
       color: new THREE.Color(faceSpec.colorHex),
-      roughness: 0.35,
-      metalness: 0.08,
+      roughness: 0.28,
+      metalness: 0.06,
       side: THREE.DoubleSide
     });
 
-    // 1. Center Pentagon Sticker
-    const rCenter = 0.42;
+    // Helper: compute point on sticker plane with normalOffset
+    const stPt = (r, angle) => {
+      return faceCenter.clone()
+        .addScaledVector(tangentU, r * Math.cos(angle))
+        .addScaledVector(tangentV, r * Math.sin(angle))
+        .addScaledVector(faceNormal, normalOffset);
+    };
+
+    // A. Center Regular Pentagon (1 piece)
     const centerVerts = [];
     for (let k = 0; k < 5; k++) {
       const angle = (2 * Math.PI * k) / 5 - Math.PI / 2;
-      const pt = faceCenter.clone()
-        .add(tangentU.clone().multiplyScalar(rCenter * Math.cos(angle)))
-        .add(tangentV.clone().multiplyScalar(rCenter * Math.sin(angle)));
-      centerVerts.push(pt);
+      centerVerts.push(stPt(rCenter, angle));
     }
 
     const centerGeom = new THREE.BufferGeometry();
@@ -149,29 +214,17 @@ export function buildMegaminxModel(options = {}) {
     centerMesh.userData = { faceId: faceSpec.id, pieceType: 'center', faceIndex: faceIdx };
     faceGroup.add(centerMesh);
 
-    // 2. 5 Edge Stickers (Trapezoids) & 3. 5 Corner Stickers (Kites)
-    const rInner = 0.46;
-    const rOuter = 0.95;
-    const rEdgeMid = 0.76;
-
+    // B. 5 Edge Stickers (Trapezoids) & 5 Corner Stickers (Kites)
     for (let k = 0; k < 5; k++) {
       const a0 = (2 * Math.PI * k) / 5 - Math.PI / 2;
       const a1 = (2 * Math.PI * (k + 1)) / 5 - Math.PI / 2;
       const aMid = (a0 + a1) / 2;
 
-      // Edge points
-      const eInner0 = faceCenter.clone()
-        .add(tangentU.clone().multiplyScalar(rInner * Math.cos(a0 + 0.15)))
-        .add(tangentV.clone().multiplyScalar(rInner * Math.sin(a0 + 0.15)));
-      const eInner1 = faceCenter.clone()
-        .add(tangentU.clone().multiplyScalar(rInner * Math.cos(a1 - 0.15)))
-        .add(tangentV.clone().multiplyScalar(rInner * Math.sin(a1 - 0.15)));
-      const eOuter0 = faceCenter.clone()
-        .add(tangentU.clone().multiplyScalar(rEdgeMid * Math.cos(a0 + 0.22)))
-        .add(tangentV.clone().multiplyScalar(rEdgeMid * Math.sin(a0 + 0.22)));
-      const eOuter1 = faceCenter.clone()
-        .add(tangentU.clone().multiplyScalar(rEdgeMid * Math.cos(a1 - 0.22)))
-        .add(tangentV.clone().multiplyScalar(rEdgeMid * Math.sin(a1 - 0.22)));
+      // Edge points: trapezoid between a0 and a1
+      const eInner0 = stPt(rInner, a0 + 0.16);
+      const eInner1 = stPt(rInner, a1 - 0.16);
+      const eOuter0 = stPt(rEdgeOuter, a0 + 0.22);
+      const eOuter1 = stPt(rEdgeOuter, a1 - 0.22);
 
       const edgeGeom = new THREE.BufferGeometry();
       const ev = [
@@ -186,19 +239,11 @@ export function buildMegaminxModel(options = {}) {
       edgeMesh.userData = { faceId: faceSpec.id, pieceType: 'edge', faceIndex: faceIdx, edgeIndex: k };
       faceGroup.add(edgeMesh);
 
-      // Corner points (Kite around vertex k)
-      const cTip = faceCenter.clone()
-        .add(tangentU.clone().multiplyScalar(rOuter * Math.cos(a0)))
-        .add(tangentV.clone().multiplyScalar(rOuter * Math.sin(a0)));
-      const cSideL = faceCenter.clone()
-        .add(tangentU.clone().multiplyScalar(rEdgeMid * Math.cos(a0 - 0.20)))
-        .add(tangentV.clone().multiplyScalar(rEdgeMid * Math.sin(a0 - 0.20)));
-      const cSideR = faceCenter.clone()
-        .add(tangentU.clone().multiplyScalar(rEdgeMid * Math.cos(a0 + 0.20)))
-        .add(tangentV.clone().multiplyScalar(rEdgeMid * Math.sin(a0 + 0.20)));
-      const cBase = faceCenter.clone()
-        .add(tangentU.clone().multiplyScalar(rInner * Math.cos(a0)))
-        .add(tangentV.clone().multiplyScalar(rInner * Math.sin(a0)));
+      // Corner points: kite around vertex k at angle a0
+      const cTip = stPt(rCornerOuter, a0);
+      const cSideL = stPt(rSideMid, a0 - 0.18);
+      const cSideR = stPt(rSideMid, a0 + 0.18);
+      const cBase = stPt(rInner, a0);
 
       const cornerGeom = new THREE.BufferGeometry();
       const cov = [
@@ -216,13 +261,6 @@ export function buildMegaminxModel(options = {}) {
 
     group.add(faceGroup);
   });
-
-  // Internal Core Dodecahedral Body kept strictly inside face in-radius
-  const coreGeom = new THREE.DodecahedronGeometry(radius * 0.72, 0);
-  const coreMat = new THREE.MeshStandardMaterial({ color: CORE_COLOR, roughness: 0.85, metalness: 0.05 });
-  const coreMesh = new THREE.Mesh(coreGeom, coreMat);
-  coreMesh.name = 'megaminx-core';
-  group.add(coreMesh);
 
   group.updateMatrixWorld(true);
   return group;
