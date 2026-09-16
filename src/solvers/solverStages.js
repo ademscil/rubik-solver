@@ -8,8 +8,13 @@
 
 import { generatePedagogicalLBLSolution } from './lbl3x3Solver.js';
 import { generatePedagogical5x5Solution } from './reduction5x5Solver.js';
+import { generatePedagogicalMegaminxSolution } from './megaminxSolver.js';
 
-export { generatePedagogicalLBLSolution, generatePedagogical5x5Solution };
+export {
+  generatePedagogicalLBLSolution,
+  generatePedagogical5x5Solution,
+  generatePedagogicalMegaminxSolution
+};
 
 /**
  * Universal stage templates for all puzzle types
@@ -265,40 +270,49 @@ const PUZZLE_STAGE_TEMPLATES = {
   ],
   'megaminx': [
     {
-      id: 'stage-1',
-      title: 'Tahap 1: Bintang Putih & Lapisan Bawah (White Star)',
+      id: 'part-1',
+      title: 'Part 1: Membuat Bintang Putih di Sisi Dasar (White Star)',
       shortTitle: 'Bintang Putih',
-      badge: 'Tahap 1',
-      formulaName: '5-Point Star & Corners',
-      description: 'Membentuk bintang putih 5 titik dan memasukkan 5 sudut bawah.',
-      tips: 'Persis seperti White Cross pada 3x3, tetapi memiliki 5 rusuk bintang.'
+      badge: 'Part 1: Bintang Putih',
+      formulaName: "F R U R' U' F' + R U R' U'",
+      description: 'Menyelaraskan 5 rusuk putih ke posisi bintang di sisi dasar dan mencocokkan warna sampingnya.',
+      tips: 'Bentuk pola bintang 5 rusuk putih pada sisi dasar dengan mencocokkan warna sampingnya.'
     },
     {
-      id: 'stage-2',
-      title: 'Tahap 2: Lapisan Kedua Melingkar (F2L)',
-      shortTitle: 'Lapisan 2',
-      badge: 'Lapisan 2',
-      formulaName: 'Pasangan F2L Megaminx',
-      description: 'Menyelesaikan lapisan samping secara berurutan mengelilingi dodecahedron.',
-      tips: 'Selesaikan satu warna samping terlebih dahulu sebelum bergeser.'
+      id: 'part-2',
+      title: 'Part 2: Menyelesaikan 5 Sudut Lapisan Bawah',
+      shortTitle: '5 Sudut',
+      badge: 'Part 2: 5 Sudut',
+      formulaName: "(R U R' U') x 2 + F' U' F",
+      description: 'Memasukkan kelima sudut putih ke slotnya masing-masing menggunakan trigger Sexy Move.',
+      tips: 'Gunakan trigger Sexy Move (R U R\' U\') untuk menjemput setiap sudut putih ke tempatnya.'
     },
     {
-      id: 'stage-3',
-      title: 'Tahap 3: Lapisan Atas Abu-abu (OLL)',
-      shortTitle: 'Bintang Abu-abu',
-      badge: 'Warna Atas',
-      formulaName: 'Megaminx Sune',
-      description: 'Membentuk bintang atas dan mengorientasikan semua sudut atas.',
-      tips: 'Gunakan adaptasi rumus F R U R\' U\' F\' dan Sune.'
+      id: 'part-3',
+      title: 'Part 3: Menyelesaikan Lapisan Kedua Melingkar (S2L)',
+      shortTitle: 'S2L',
+      badge: 'Part 3: S2L',
+      formulaName: "U R U' R' U' F' U F (S2L)",
+      description: 'Menyelesaikan pasangan rusuk dan sudut lapisan kedua mengelilingi seluruh 5 sisi samping.',
+      tips: 'Pasangkan rusuk dan sudut lapisan kedua secara melingkar mengelilingi 5 muka samping.'
     },
     {
-      id: 'stage-4',
-      title: 'Tahap 4: Permutasi Akhir & Selesai (PLL)',
-      shortTitle: 'Selesai',
-      badge: 'Selesai',
-      formulaName: 'Komutator Megaminx PLL',
-      description: 'Menyelaraskan sudut dan rusuk terakhir hingga Megaminx selesai utuh.',
-      tips: 'Selesaikan sudut terlebih dahulu lalu tuntaskan rusuk.'
+      id: 'part-4',
+      title: 'Part 4: Membentuk Bintang Sisi Atas (Grey Star OLL)',
+      shortTitle: 'Bintang Atas',
+      badge: 'Part 4: Bintang Atas',
+      formulaName: "F R U R' U' F' + Sune",
+      description: 'Membentuk pola bintang 5 titik pada sisi atas abu-abu dan mengorientasikan seluruh rusuknya.',
+      tips: 'Gunakan tirai F R U R\' U\' F\' lalu rumus ikan Sune untuk mengorientasikan rusuk atas.'
+    },
+    {
+      id: 'part-5',
+      title: 'Part 5: Permutasi Sudut & Rusuk Akhir (PLL Selesai)',
+      shortTitle: 'PLL Selesai',
+      badge: 'Part 5: Selesai',
+      formulaName: "T-Perm Megaminx + AUF",
+      description: 'Menyelaraskan posisi sudut dengan T-Perm lalu menyejajarkan seluruh warna lapisan akhir.',
+      tips: 'Gunakan T-Perm untuk menyelaraskan sudut lalu tuntaskan rotasi akhir hingga Megaminx utuh.'
     }
   ]
 };

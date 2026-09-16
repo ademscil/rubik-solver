@@ -11,7 +11,12 @@ import PuzzleSelector from './components/PuzzleSelector';
 import { puzzleRegistry } from './puzzles/registry.js';
 import { parseAlgorithm as defaultParseAlg, getInverseMove as defaultGetInverse } from './cube/rubikNotation.js';
 import { generateScramble as defaultScramble } from './cube/presets.js';
-import { generatePedagogicalLBLSolution, generatePedagogical5x5Solution, partitionMovesIntoStages } from './solvers/solverStages.js';
+import {
+  generatePedagogicalLBLSolution,
+  generatePedagogical5x5Solution,
+  generatePedagogicalMegaminxSolution,
+  partitionMovesIntoStages
+} from './solvers/solverStages.js';
 import { getActiveStageInfo } from './solvers/lbl3x3Solver.js';
 
 export default function App() {
@@ -331,6 +336,11 @@ export default function App() {
       stages = pedagogical.stages;
     } else if (currentPuzzleId === 'cube-5x5') {
       const pedagogical = generatePedagogical5x5Solution();
+      scrambleMoves = pedagogical.scrambleMoves;
+      solutionMoves = pedagogical.solutionMoves;
+      stages = pedagogical.stages;
+    } else if (currentPuzzleId === 'megaminx') {
+      const pedagogical = generatePedagogicalMegaminxSolution();
       scrambleMoves = pedagogical.scrambleMoves;
       solutionMoves = pedagogical.solutionMoves;
       stages = pedagogical.stages;
