@@ -283,6 +283,78 @@ export const PRESETS_5X5 = Object.freeze([
     algorithm: 'Rw2 Lw2 3Rw2 Uw2 Dw2 3Uw2 Fw2 Bw2 3Fw2',
     stage: 'all',
     tips: 'Kombinasi putaran 180 derajat pada irisan luar dan irisan tengah.'
+  },
+  {
+    id: 'case-3-edge-insert',
+    name: 'Kasus 3: Pasang Sayap Bawah ke FR (Dd R F\' U R\' F Dd\')',
+    category: 'Reduksi Rusuk',
+    desc: 'Memasukkan rusuk sayap dari lapisan bawah ke kanan-depan.',
+    stateDescription: 'Pemasangan sayap rusuk dari lapisan bawah ke slot depan-kanan.',
+    setupMoves: "Dw F' R U' F R' Dw'",
+    solutionMoves: "Dw R F' U R' F Dw'",
+    algorithm: "Dw R F' U R' F Dw'",
+    stage: 'edges',
+    tips: 'Diagram Kasus 3: (Dd) R F\' U R\' F (Dd)\''
+  },
+  {
+    id: 'case-4-edge-insert',
+    name: 'Kasus 4: Pasang Sayap Bawah ke FL (Dd\' L\' U\' L F\' L F L\' Dd)',
+    category: 'Reduksi Rusuk',
+    desc: 'Memasukkan rusuk sayap dari lapisan bawah ke kiri-depan.',
+    stateDescription: 'Pemasangan sayap rusuk dari lapisan bawah ke slot depan-kiri.',
+    setupMoves: "Dw' L F' L' F L' U L Dw",
+    solutionMoves: "Dw' L' U' L F' L F L' Dw",
+    algorithm: "Dw' L' U' L F' L F L' Dw",
+    stage: 'edges',
+    tips: 'Diagram Kasus 4: (Dd)\' L\' U\' L F\' L F L\' (Dd)'
+  },
+  {
+    id: 'case-6-wing-swap',
+    name: 'Kasus 6: Tukar Dua Sayap Baris Atas (Uu2 Rr2 F2 u2 F2 Rr2 Uu2)',
+    category: 'Reduksi Rusuk',
+    desc: 'Menukar dua stiker sayap di baris atas tanpa merusak pusat.',
+    stateDescription: 'Dua sayap baris atas tertukar.',
+    setupMoves: "Uw2 2R2 F2 2U2 F2 2R2 Uw2",
+    solutionMoves: "Uw2 2R2 F2 2U2 F2 2R2 Uw2",
+    algorithm: "Uw2 2R2 F2 2U2 F2 2R2 Uw2",
+    stage: 'edges',
+    tips: 'Diagram Kasus 6: (Uu)2 (Rr)2 F2 u2 F2 (Rr)2 (Uu)2'
+  },
+  {
+    id: 'case-7-flip-wing',
+    name: 'Kasus 7: Membalik Sayap Terbalik (F2 Rr D2 Rr\' F2 U2 F2 Ll B2 Ll\')',
+    category: 'Reduksi Rusuk',
+    desc: 'Membalikkan sayap yang terbalik orientasinya pada rusuk yang sama.',
+    stateDescription: 'Sayap terbalik orientasinya pada rusuk yang sama.',
+    setupMoves: "2L B2 2L' F2 U2 F2 2R D2 2R' F2",
+    solutionMoves: "F2 2R D2 2R' F2 U2 F2 2L B2 2L'",
+    algorithm: "F2 2R D2 2R' F2 U2 F2 2L B2 2L'",
+    stage: 'edges',
+    tips: 'Diagram Kasus 7: F2 (Rr) D2 (Rr)\' F2 U2 F2 (Ll) B2 (Ll)\''
+  },
+  {
+    id: 'case-8-l2e-comm',
+    name: 'Kasus 8: Komutator Dua Rusuk Terakhir (L2E)',
+    category: 'Reduksi Rusuk',
+    desc: 'Komutator penyelesaian dua rusuk terakhir untuk menyelaraskan kedua sayap sekaligus.',
+    stateDescription: 'Dua rusuk terakhir belum terselaraskan.',
+    setupMoves: "2R2 B2 2R B2 2R' B2 2R B2 2R' U2 2R U2 B2 2R2",
+    solutionMoves: "2R2 B2 2R' U2 2R' U2 B2 2R' B2 2R B2 2R' B2 2R2",
+    algorithm: "2R2 B2 2R' U2 2R' U2 B2 2R' B2 2R B2 2R' B2 2R2",
+    stage: 'edges',
+    tips: 'Diagram Kasus 8: (Rr)2 B2 (Rr)\' U2 (Rr)\' U2 B2 (Rr)\' B2 (Rr) B2 (Rr)\' B2 (Rr)2'
+  },
+  {
+    id: 'case-2-adjacent-swap',
+    name: 'Kasus 2: Menukar Sepasang Sayap Bersebelahan',
+    category: 'Parity',
+    desc: 'Menukar dua pasang sayap rusuk yang bersebelahan.',
+    stateDescription: 'Sepasang sayap rusuk bersebelahan tertukar.',
+    setupMoves: "2L2 U2 2R U2 2R' F2 2L F2 U2 2L U2 2L",
+    solutionMoves: "2L' U2 2L' U2 F2 2L' F2 2R U2 2R' U2 2L2",
+    algorithm: "2L' U2 2L' U2 F2 2L' F2 2R U2 2R' U2 2L2",
+    stage: 'parity',
+    tips: 'Diagram Kasus 2: (Ll)\' U2 (Ll)\' U2 F2 (Ll)\' F2 (Rr) U2 (Rr)\' U2 (Ll)2'
   }
 ]);
 

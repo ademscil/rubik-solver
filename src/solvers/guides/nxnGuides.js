@@ -348,92 +348,134 @@ export const GUIDE_STAGES_4X4 = Object.freeze([
 export const GUIDE_STAGES_5X5 = Object.freeze([
   {
     id: '5x5-stage-centers',
-    title: '1. Metode Reduksi Pemula: Membangun 6 Pusat 3x3 (Balok 3 Lapis)',
-    desc: 'Membangun 6 pusat 3x3 pada kubus 5x5. Setiap muka terdiri dari 1 fixed center sejati, 4 plus centers (+), dan 4 corner centers (x). Dibangun dari bar tengah 1x3 dan dua bar samping 1x3.',
+    title: '1. Metode Reduksi Pemula: Membangun 6 Pusat 3x3 (Membentuk Inti 3x3 Dalam)',
+    desc: 'Langkah pertama metode pemula mereduksi 5x5 ke 3x3: membangun 6 blok pusat 3x3 (masing-masing 9 stiker). Selesaikan pusat Putih & Kuning terlebih dahulu, lalu selesaikan 4 pusat samping menggunakan komutator bar 1x3.',
     cases: [
       {
-        id: '5x5-l2c-barswap',
-        name: 'L2C: Pertukaran Bar 1x3 pada Dua Pusat Terakhir',
+        id: '5x5-c-barswap',
+        name: 'Pertukaran Bar Pusat 1x3 (Komutator L2C)',
         algorithm: "Rw U Rw' U Rw U2 Rw'",
-        description: 'Menukar satu bar 1x3 antara center atas dan depan tanpa merusak 4 center samping lainnya.',
-        tips: 'Gunakan komutator push-turn-restore untuk menyelaraskan bar center.'
+        description: 'Menukar satu baris 1x3 antara pusat atas dan depan tanpa merusak pusat putih dan kuning.',
+        tips: 'Gunakan teknik Push-Turn-Restore: dorong bar (Rw), putar lapisan U, lalu kembalikan (Rw\').'
       },
       {
-        id: '5x5-l2c-corner',
-        name: 'L2C: Pertukaran Stiker Sudut Center',
+        id: '5x5-c-corner',
+        name: 'Pertukaran Stiker Sudut Pusat',
         algorithm: "Rw U Rw' U' Rw' F Rw F'",
         description: 'Menukar satu stiker sudut center yang tersisa.',
-        tips: 'Komutator presisi untuk menyelesaikan pusat 5x5 100% sempurna.'
+        tips: 'Komutator presisi untuk menyelesaikan 6 pusat 5x5 sempurna.'
       }
     ]
   },
   {
-    id: '5x5-stage-edges',
-    title: '2. Metode Reduksi Pemula: Memasangkan 12 Rusuk Triplet (Free Slice & L4E)',
-    desc: 'Setiap rusuk 5x5 terdiri dari 3 potongan: Sayap Kiri + Midge Tengah + Sayap Kanan. Gunakan metode Free Slice untuk menyelesaikan 8 rusuk pertama, lalu gunakan metode Slice-Flip-Slice untuk 4 rusuk terakhir (L4E) sesuai panduan Feliks Zemdegs.',
+    id: '5x5-stage-edges-first8',
+    title: '2. Memasangkan 8 Rusuk Pertama (Free Slice & Kasus 3, 4, 5)',
+    desc: 'Memasangkan rusuk sayap luar ke rusuk tengah (midge) hingga membentuk triplet utuh pada lapisan bebas (Free Slice). Menggunakan rumus standar Kasus 3, 4, dan 5.',
     cases: [
       {
-        id: '5x5-edge-insert-preserve',
-        name: 'Memasukkan Rusuk UF ke FR (Menjaga Orientasi)',
-        algorithm: "R U' R'",
-        description: 'Memasukkan rusuk dari posisi atas-depan (UF) ke kanan-depan (FR) dengan mempertahankan orientasi warnanya.',
-        tips: 'Gunakan jika stiker sudah cocok tanpa perlu dibalik.'
+        id: '5x5-case-3',
+        name: 'Kasus 3: Memasukkan Sayap Bawah ke Depan-Kanan (Dd R F\' U R\' F Dd\')',
+        algorithm: "Dw R F' U R' F Dw'",
+        description: 'Mengambil sayap dari lapisan bawah (Dw), memasukkannya ke slot FR dengan trigger Sexy-Sledge (R F\' U R\' F), lalu mengembalikan irisan (Dw\').',
+        tips: 'Sesuai diagram referensi Kasus 3: (Dd) R F\' U R\' F (Dd)\''
       },
       {
-        id: '5x5-edge-insert-flip',
-        name: 'Memasukkan Rusuk UF ke FR (Mengubah Orientasi)',
-        algorithm: "F R' F' R",
-        description: 'Memasukkan rusuk dari posisi atas-depan (UF) ke kanan-depan (FR) sekaligus membalik orientasi warnanya.',
-        tips: 'Gunakan jika orientasi rusuk perlu dibalik saat dimasukkan.'
+        id: '5x5-case-4',
+        name: 'Kasus 4: Memasukkan Sayap Bawah ke Depan-Kiri (Dd\' L\' U\' L F\' L F L\' Dd)',
+        algorithm: "Dw' L' U' L F' L F L' Dw",
+        description: 'Mengiris lapisan bawah berlawanan arah (Dw\'), memasukkan sayap ke slot FL, lalu mengembalikan irisan.',
+        tips: 'Sesuai diagram referensi Kasus 4: (Dd)\' L\' U\' L F\' L F L\' (Dd)'
       },
       {
-        id: '5x5-edge-flip',
-        name: 'Flipping Algorithm Rusuk FR (CubeSkills)',
+        id: '5x5-case-5',
+        name: 'Kasus 5: Memasangkan Dua Sayap Sekaligus (Dd Uu\' R F\' U R\' F Dd\' Uu)',
+        algorithm: "Dw Uw' R F' U R' F Dw' Uw",
+        description: 'Memasangkan dua sayap rusuk sekaligus menggunakan irisan ganda atas dan bawah.',
+        tips: 'Sesuai diagram referensi Kasus 5: (Dd) (Uu)\' R F\' U R\' F (Dd)\' (Uu)'
+      },
+      {
+        id: '5x5-flipping-trigger',
+        name: 'Flipping Trigger Rusuk FR (CubeSkills)',
         algorithm: "R U R' F R' F' R",
         description: 'Membalik orientasi sayap rusuk di posisi kanan-depan (FR). Merupakan inti dari teknik pemasangan rusuk 5x5.',
         tips: 'Kombinasi 3 langkah Sexy Move (R U R\') dilanjutkan 4 langkah Sledgehammer (F R\' F\' R).'
+      }
+    ]
+  },
+  {
+    id: '5x5-stage-edges-last4',
+    title: '3. Memasangkan 4 Rusuk Terakhir (L4E & Kasus 6, 7, 8, 9, 10)',
+    desc: 'Menyelesaikan 4 rusuk terakhir tanpa merusak 8 rusuk yang sudah jadi menggunakan rumus presisi Kasus 6, 7, 8, 9, dan 10.',
+    cases: [
+      {
+        id: '5x5-case-6',
+        name: 'Kasus 6: Menukar Dua Sayap di Baris Atas (Uu2 Rr2 F2 u2 F2 Rr2 Uu2)',
+        algorithm: "Uw2 2R2 F2 2U2 F2 2R2 Uw2",
+        description: 'Menukar dua stiker sayap di baris atas tanpa merusak pusat dan rusuk lainnya.',
+        tips: 'Sesuai diagram referensi Kasus 6: (Uu)2 (Rr)2 F2 u2 F2 (Rr)2 (Uu)2'
       },
       {
-        id: '5x5-free-slice-uw',
-        name: 'Slice-Flip-Slice Lapisan Atas (Uw\')',
-        algorithm: "Uw' R U R' F R' F' R Uw",
-        description: 'Mengiris lapisan atas (Uw\'), membalik rusuk dengan trigger Flipping Algorithm di FR, lalu mengembalikan irisan (Uw).',
-        tips: 'Teknik wajib pada 4 rusuk terakhir untuk menjaga center tetap utuh.'
+        id: '5x5-case-7',
+        name: 'Kasus 7: Membalik Sayap yang Terbalik pada Rusuk Sama',
+        algorithm: "F2 2R D2 2R' F2 U2 F2 2L B2 2L'",
+        description: 'Membalikkan sayap yang terbalik orientasinya pada rusuk yang sama.',
+        tips: 'Sesuai diagram referensi Kasus 7: F2 (Rr) D2 (Rr)\' F2 U2 F2 (Ll) B2 (Ll)\''
       },
       {
-        id: '5x5-free-slice-dw',
-        name: 'Slice-Flip-Slice Lapisan Bawah (Dw\')',
-        algorithm: "Dw' y' R U R' F R' F' R Dw",
-        description: 'Variasi irisan lapisan bawah (Dw\'), rotasi y\', membalik rusuk di FR, lalu mengembalikan irisan (Dw).',
-        tips: 'Dipakai saat pasangan rusuk berada di lapisan bawah.'
+        id: '5x5-case-8',
+        name: 'Kasus 8: Komutator Dua Rusuk Terakhir (L2E)',
+        algorithm: "2R2 B2 2R' U2 2R' U2 B2 2R' B2 2R B2 2R' B2 2R2",
+        description: 'Komutator penyelesaian dua rusuk terakhir untuk menyelaraskan kedua sayap sekaligus.',
+        tips: 'Sesuai diagram referensi Kasus 8: (Rr)2 B2 (Rr)\' U2 (Rr)\' U2 B2 (Rr)\' B2 (Rr) B2 (Rr)\' B2 (Rr)2'
+      },
+      {
+        id: '5x5-case-9',
+        name: 'Kasus 9: Siklus 3 Sayap Sisi Kiri (3-Cycle Left Wing)',
+        algorithm: "2L U2 2L2 U2 2L' U2 2L U2 2L' U2 2L2 U2 2L",
+        description: 'Memutar 3 sayap rusuk di sisi kiri secara siklis hingga seluruh rusuk kiri tersusun rapi.',
+        tips: 'Sesuai diagram referensi Kasus 9: (Ll) U2 (Ll)2 U2 (Ll)\' U2 (Ll) U2 (Ll)\' U2 (Ll)2 U2 (Ll)'
+      },
+      {
+        id: '5x5-case-10',
+        name: 'Kasus 10: Siklus 3 Sayap Sisi Kanan (3-Cycle Right Wing)',
+        algorithm: "2R' U2 2R2 U2 2R U2 2R' U2 2R U2 2R2 U2 2R'",
+        description: 'Memutar 3 sayap rusuk di sisi kanan secara siklis hingga seluruh rusuk kanan tersusun rapi.',
+        tips: 'Sesuai diagram referensi Kasus 10: (Rr)\' U2 (Rr)2 U2 (Rr) U2 (Rr)\' U2 (Rr) U2 (Rr)2 U2 (Rr)\''
       }
     ]
   },
   {
     id: '5x5-stage-3x3',
-    title: '3. Tahap 3x3 Biasa (Outer Turns Only)',
-    desc: 'Setelah seluruh center dan rusuk triplet selesai direduksi, selesaikan kubus menggunakan metode 3x3 standar.',
+    title: '4. Menyelesaikan Sebagai Kubus 3x3 (Cross -> F2L -> OLL -> PLL)',
+    desc: 'Kini kubus 5x5 Anda telah berubah menjadi kubus 3x3 biasa! Seluruh blok pusat berfungsi sebagai 1 center, dan setiap 3 rusuk berfungsi sebagai 1 edge.',
     cases: [
       {
-        id: '5x5-3x3-phase',
-        name: 'Penyelesaian Sesuai Metode 3x3',
+        id: '5x5-3x3-step',
+        name: 'Eksekusi Rumus 3x3 (Hanya Putar Lapisan Luar 1 Lapis)',
         algorithm: "R U R' U'",
-        description: 'Kubus 5x5 kini berperilaku identik dengan 3x3 standar.',
-        tips: 'Karena 5x5 memiliki fixed center sejati, PLL Parity 4x4 TIDAK PERNAH BISA TERJADI!'
+        description: 'Gerakkan hanya lapisan luar (R, L, U, D, F, B) tanpa irisan tengah.',
+        tips: 'Gunakan metode CFOP atau LBL standar untuk menyelesaikan kubus 3x3 ini.'
       }
     ]
   },
   {
     id: '5x5-stage-parity',
-    title: '4. Panduan Paritas 5x5: Wing Flip Parity (Lucas Wing Parity 5x5)',
-    desc: 'Satu-satunya kasus paritas pada 5x5: sepasang sayap luar terbalik orientasinya relatif terhadap midge tengah pada rusuk depan-atas (UF).',
+    title: '5. Menangani Paritas 5x5 (Kasus 1 & Kasus 2)',
+    desc: 'Pada kubus 5x5, ada kemungkinan muncul paritas sayap (Wing Flip Parity / Wing Swap). Gunakan rumus Kasus 1 atau Kasus 2.',
     cases: [
       {
-        id: '5x5-lucas-wing',
-        name: 'Algoritma Wing Flip Parity 5x5',
-        algorithm: "Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 3Rw' U2 Rw U2 Rw' U2 Rw'",
-        description: 'Perhatikan langkah 3Rw\' di tengah formula! Gerakan 3 lapis ini mempertahankan midge tengah tetap di tempatnya sementara hanya sepasang sayap luar yang dibalik.',
-        tips: 'Eksekusi dari posisi muka rusuk yang terbalik berada di Depan-Atas (UF).'
+        id: '5x5-case-1',
+        name: 'Kasus 1: Paritas Sayap Rusuk Terbalik (OLL Wing Parity)',
+        algorithm: "2R2 B2 U2 2L U2 2R' U2 2R U2 F2 2R F2 2L' B2 2R2",
+        description: 'Membalik sepasang sayap luar pada rusuk depan-atas (UF) tanpa merusak midge tengah.',
+        tips: 'Sesuai diagram referensi Kasus 1: (Rr)2 B2 U2 (Ll) U2 (Rr)\' U2 (Rr) U2 F2 (Rr) F2 (Ll)\' B2 (Rr)2'
+      },
+      {
+        id: '5x5-case-2',
+        name: 'Kasus 2: Menukar Sepasang Sayap Rusuk Terakhir (Adjacent Wing Swap)',
+        algorithm: "2L' U2 2L' U2 F2 2L' F2 2R U2 2R' U2 2L2",
+        description: 'Menukar dua pasang sayap rusuk yang bersebelahan.',
+        tips: 'Sesuai diagram referensi Kasus 2: (Ll)\' U2 (Ll)\' U2 F2 (Ll)\' F2 (Rr) U2 (Rr)\' U2 (Ll)2'
       }
     ]
   }

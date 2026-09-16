@@ -129,3 +129,4 @@ export function simplifyMoves(moves) {
 
   return current;
 }
+

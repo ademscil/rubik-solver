@@ -95,6 +95,15 @@ function computeColumnPolygons() {
       poly = clipPolygon(poly, 0, 1, W);
       poly = clipPolygon(poly, 0, -1, W);
 
+      let area = 0;
+      for (let i = 0; i < poly.length; i++) {
+        const j = (i + 1) % poly.length;
+        area += (poly[i].x * poly[j].z - poly[j].x * poly[i].z);
+      }
+      if (area > 0) {
+        poly.reverse();
+      }
+
       let cx = 0;
       let cz = 0;
       poly.forEach(p => { cx += p.x; cz += p.z; });
@@ -130,6 +139,7 @@ function buildPrismGeometry(worldPoly, gx, gy, gz) {
 
   const positions = [];
   const normals = [];
+  const uvs = [];
   const indices = [];
 
   const halfH = H / 2;
@@ -139,10 +149,11 @@ function buildPrismGeometry(worldPoly, gx, gy, gz) {
   localPoly.forEach(p => {
     positions.push(p.x, halfH, p.z);
     normals.push(0, 1, 0);
+    uvs.push((p.x + 1.0) * 0.5, (p.z + 1.0) * 0.5);
   });
   const topIndexStart = indices.length;
   for (let i = 1; i < N - 1; i++) {
-    indices.push(topStartIdx, topStartIdx + i, topStartIdx + i + 1);
+    indices.push(topStartIdx, topStartIdx + i + 1, topStartIdx + i);
   }
   const topCount = indices.length - topIndexStart;
   geom.addGroup(topIndexStart, topCount, gy === 1 ? 2 : 6);
@@ -152,10 +163,11 @@ function buildPrismGeometry(worldPoly, gx, gy, gz) {
   localPoly.forEach(p => {
     positions.push(p.x, -halfH, p.z);
     normals.push(0, -1, 0);
+    uvs.push((p.x + 1.0) * 0.5, (p.z + 1.0) * 0.5);
   });
   const botIndexStart = indices.length;
   for (let i = 1; i < N - 1; i++) {
-    indices.push(botStartIdx, botStartIdx + i + 1, botStartIdx + i);
+    indices.push(botStartIdx, botStartIdx + i, botStartIdx + i + 1);
   }
   const botCount = indices.length - botIndexStart;
   geom.addGroup(botIndexStart, botCount, gy === -1 ? 3 : 6);
@@ -171,22 +183,31 @@ function buildPrismGeometry(worldPoly, gx, gy, gz) {
     const midZ = (wp1.z + wp2.z) / 2;
 
     let matIdx = 6;
-    if (Math.abs(midX - W) < 0.01) matIdx = 0;
-    else if (Math.abs(midX - (-W)) < 0.01) matIdx = 1;
-    else if (Math.abs(midZ - W) < 0.01) matIdx = 4;
-    else if (Math.abs(midZ - (-W)) < 0.01) matIdx = 5;
+    if (Math.abs(midX - W) < 0.02) matIdx = 0; // Right (Red)
+    else if (Math.abs(midX - (-W)) < 0.02) matIdx = 1; // Left (Orange)
+    else if (Math.abs(midZ - W) < 0.02) matIdx = 4; // Front (Green)
+    else if (Math.abs(midZ - (-W)) < 0.02) matIdx = 5; // Back (Blue)
+
+    const baseIdx = positions.length / 3;
+    positions.push(p1.x, halfH, p1.z);
+    positions.push(p2.x, halfH, p2.z);
+    positions.push(p2.x, -halfH, p2.z);
+    positions.push(p1.x, -halfH, p1.z);
 
     const dx = p2.x - p1.x;
     const dz = p2.z - p1.z;
     const len = Math.hypot(dx, dz) || 1;
-    const nx = dz / len;
-    const nz = -dx / len;
+    const nx = -dz / len;
+    const nz = dx / len;
+    normals.push(nx, 0, nz);
+    normals.push(nx, 0, nz);
+    normals.push(nx, 0, nz);
+    normals.push(nx, 0, nz);
 
-    const baseIdx = positions.length / 3;
-    positions.push(p1.x, halfH, p1.z); normals.push(nx, 0, nz);
-    positions.push(p2.x, halfH, p2.z); normals.push(nx, 0, nz);
-    positions.push(p2.x, -halfH, p2.z); normals.push(nx, 0, nz);
-    positions.push(p1.x, -halfH, p1.z); normals.push(nx, 0, nz);
+    uvs.push(0, 1);
+    uvs.push(1, 1);
+    uvs.push(1, 0);
+    uvs.push(0, 0);
 
     const sideIndexStart = indices.length;
     indices.push(baseIdx, baseIdx + 1, baseIdx + 2);
@@ -196,8 +217,25 @@ function buildPrismGeometry(worldPoly, gx, gy, gz) {
 
   geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
   geom.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+  geom.setAttribute('uv', new THREE.Float32BufferAttribute(uvs, 2));
   geom.setIndex(indices);
+  geom.computeVertexNormals();
   return geom;
+}
+
+function createWindmillMaterial(hex, isCore = false) {
+  const mat = new THREE.MeshStandardMaterial({
+    color: new THREE.Color(hex),
+    roughness: isCore ? 0.8 : 0.25,
+    metalness: isCore ? 0.08 : 0.05,
+    side: THREE.DoubleSide
+  });
+  mat.userData = {
+    hexColor: hex,
+    cacheKey: hex,
+    isShared: true
+  };
+  return mat;
 }
 
 /**
@@ -218,13 +256,13 @@ export function buildWindmillModel(options = {}) {
     puzzleType: 'windmill'
   };
 
-  const matR = getStickerMaterial(STICKER_COLORS.RED);
-  const matL = getStickerMaterial(STICKER_COLORS.ORANGE);
-  const matU = getStickerMaterial(STICKER_COLORS.WHITE);
-  const matD = getStickerMaterial(STICKER_COLORS.YELLOW);
-  const matF = getStickerMaterial(STICKER_COLORS.GREEN);
-  const matB = getStickerMaterial(STICKER_COLORS.BLUE);
-  const matCore = getInternalCoreMaterial();
+  const matR = createWindmillMaterial(WINDMILL_COLORS.R.hex);
+  const matL = createWindmillMaterial(WINDMILL_COLORS.L.hex);
+  const matU = createWindmillMaterial(WINDMILL_COLORS.U.hex);
+  const matD = createWindmillMaterial(WINDMILL_COLORS.D.hex);
+  const matF = createWindmillMaterial(WINDMILL_COLORS.F.hex);
+  const matB = createWindmillMaterial(WINDMILL_COLORS.B.hex);
+  const matCore = createWindmillMaterial('#181820', true);
 
   const materials = [matR, matL, matU, matD, matF, matB, matCore];
   const cubies = [];

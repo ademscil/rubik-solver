@@ -326,3 +326,4 @@ export function solve2x2FromModel(modelGroup) {
     isSolved: false
   };
 }
+

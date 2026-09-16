@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { X, Check, Box, Sparkles, Layers, ShieldAlert, Award, Star, Compass } from 'lucide-react';
-import { WCA_PUZZLE_METADATA } from '../puzzles/registry.js';
+import { ALL_PUZZLE_METADATA } from '../puzzles/registry.js';
 
 // 4 Difficulty Tiers with distinct colors and branding
 export const DIFFICULTY_CONFIG = {
@@ -163,7 +163,7 @@ export default function PuzzleSelector({
                 {/* Puzzle Cards Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   {tier.puzzles.map((pId) => {
-                    const meta = WCA_PUZZLE_METADATA[pId];
+                    const meta = ALL_PUZZLE_METADATA[pId];
                     if (!meta) return null;
                     const p = meta;
                     const isActive = p.id === currentPuzzleId || currentPuzzleId === meta.wcaId || (p.id === 'square-1' && currentPuzzleId === 'square1') || (p.id === 'square1' && currentPuzzleId === 'square-1');

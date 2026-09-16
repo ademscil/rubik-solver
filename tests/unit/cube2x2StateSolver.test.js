@@ -69,3 +69,4 @@ describe('Tier 1: Feature 20 - 2x2 State-Based Group Solver & Simplifier', () =>
     assert.equal(formatTurn('U', 3), "U'");
   });
 });
+

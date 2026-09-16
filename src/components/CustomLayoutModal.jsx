@@ -81,25 +81,6 @@ export default function CustomLayoutModal({
     setNetState(getInitialSolvedState());
   }, [order, puzzle?.id]);
 
-  if (!isOpen) return null;
-
-  const handleStickerClick = (face, index) => {
-    // Lock fixed center for odd order cubes to maintain valid BOY orientation
-    if (isOdd && index === centerIndex) return;
-
-    setNetState(prev => {
-      const updated = { ...prev };
-      const faceArr = [...(updated[face] || Array(stickersPerFace).fill('#333'))];
-      faceArr[index] = selectedColorHex;
-      updated[face] = faceArr;
-      return updated;
-    });
-  };
-
-  const handleResetToSolved = () => {
-    setNetState(getInitialSolvedState());
-  };
-
   // Mathematical validation: each color must have exactly stickersPerFace stickers
   const colorCounts = useMemo(() => {
     const counts = {};
@@ -123,6 +104,23 @@ export default function CustomLayoutModal({
     return palette.every((p) => (colorCounts[p.hex.toUpperCase()] || 0) === expectedStickersPerColor);
   }, [palette, colorCounts, expectedStickersPerColor]);
 
+  const handleStickerClick = (face, index) => {
+    // Lock fixed center for odd order cubes to maintain valid BOY orientation
+    if (isOdd && index === centerIndex) return;
+
+    setNetState(prev => {
+      const updated = { ...prev };
+      const faceArr = [...(updated[face] || Array(stickersPerFace).fill('#333'))];
+      faceArr[index] = selectedColorHex;
+      updated[face] = faceArr;
+      return updated;
+    });
+  };
+
+  const handleResetToSolved = () => {
+    setNetState(getInitialSolvedState());
+  };
+
   const handleApply = () => {
     if (!isNetValid) return;
     if (onApplyLayout) {
@@ -130,6 +128,8 @@ export default function CustomLayoutModal({
     }
     onClose();
   };
+
+  if (!isOpen) return null;
 
   const renderFaceGrid = (faceKey, title) => {
     const stickers = netState[faceKey] || Array(stickersPerFace).fill('#333');

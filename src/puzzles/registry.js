@@ -214,6 +214,15 @@ export const SHAPE_MOD_METADATA = {
 };
 
 /**
+ * Combined metadata catalog for all puzzles (WCA + Shape Modifications)
+ * @type {Record<string, import('./types.js').PuzzleMetadata>}
+ */
+export const ALL_PUZZLE_METADATA = Object.freeze({
+  ...WCA_PUZZLE_METADATA,
+  ...SHAPE_MOD_METADATA
+});
+
+/**
  * Mapping of alternate IDs, abbreviations, and WCA codes to canonical IDs
  * @type {Record<string, string>}
  */
@@ -417,10 +426,12 @@ export class PuzzleRegistry {
 
   /**
    * Returns metadata for all 10 WCA puzzles without instantiating 3D meshes
+   * @param {boolean} [includeMods=false]
    * @returns {import('./types.js').PuzzleMetadata[]}
    */
-  getAllMetadata() {
-    return Object.values(WCA_PUZZLE_METADATA).map(meta => ({
+  getAllMetadata(includeMods = false) {
+    const catalog = includeMods ? ALL_PUZZLE_METADATA : WCA_PUZZLE_METADATA;
+    return Object.values(catalog).map(meta => ({
       ...meta,
       loaded: this.definitions.has(meta.id)
     }));
@@ -433,7 +444,7 @@ export class PuzzleRegistry {
    */
   getMetadata(id) {
     const canonicalId = normalizePuzzleId(id);
-    const meta = WCA_PUZZLE_METADATA[canonicalId] || SHAPE_MOD_METADATA[canonicalId];
+    const meta = ALL_PUZZLE_METADATA[canonicalId];
     if (!meta) return null;
     return {
       ...meta,
