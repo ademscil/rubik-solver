@@ -120,8 +120,16 @@ function computeColumnPolygons() {
 
 const COLUMN_POLYGONS = computeColumnPolygons();
 
+function scalePoint(p, center, factor) {
+  return {
+    x: center.x + (p.x - center.x) * factor,
+    z: center.z + (p.z - center.z) * factor
+  };
+}
+
 /**
- * Builds a solid extruded 3D prism BufferGeometry with correct material groups for a Windmill cubie.
+ * Builds a solid sculpted 3D prism BufferGeometry with black plastic bevels
+ * and inset colored stickers for a Windmill cubie.
  * 
  * Material index mapping:
  * 0: Right (Red)
@@ -137,82 +145,150 @@ function buildPrismGeometry(worldPoly, gx, gy, gz) {
   const N = worldPoly.length;
   const localPoly = worldPoly.map(p => ({ x: p.x - gx, z: p.z - gz }));
 
+  let centroid = { x: 0, z: 0 };
+  localPoly.forEach(p => { centroid.x += p.x; centroid.z += p.z; });
+  centroid.x /= N; centroid.z /= N;
+
   const positions = [];
   const normals = [];
   const uvs = [];
   const indices = [];
 
   const halfH = H / 2;
+  const CORE_MAT_IDX = 6;
 
-  // 1. Top cap (pointing +Y)
-  const topStartIdx = positions.length / 3;
+  // --- PART 1: Black Plastic Piece Body ---
+  // 1. Top cap (body - black plastic)
+  const bTopStart = positions.length / 3;
   localPoly.forEach(p => {
     positions.push(p.x, halfH, p.z);
     normals.push(0, 1, 0);
-    uvs.push((p.x + 1.0) * 0.5, (p.z + 1.0) * 0.5);
+    uvs.push(0.5, 0.5);
   });
-  const topIndexStart = indices.length;
+  const bTopIdxStart = indices.length;
   for (let i = 1; i < N - 1; i++) {
-    indices.push(topStartIdx, topStartIdx + i + 1, topStartIdx + i);
+    indices.push(bTopStart, bTopStart + i + 1, bTopStart + i);
   }
-  const topCount = indices.length - topIndexStart;
-  geom.addGroup(topIndexStart, topCount, gy === 1 ? 2 : 6);
+  geom.addGroup(bTopIdxStart, indices.length - bTopIdxStart, CORE_MAT_IDX);
 
-  // 2. Bottom cap (pointing -Y)
-  const botStartIdx = positions.length / 3;
+  // 2. Bottom cap (body - black plastic)
+  const bBotStart = positions.length / 3;
   localPoly.forEach(p => {
     positions.push(p.x, -halfH, p.z);
     normals.push(0, -1, 0);
-    uvs.push((p.x + 1.0) * 0.5, (p.z + 1.0) * 0.5);
+    uvs.push(0.5, 0.5);
   });
-  const botIndexStart = indices.length;
+  const bBotIdxStart = indices.length;
   for (let i = 1; i < N - 1; i++) {
-    indices.push(botStartIdx, botStartIdx + i, botStartIdx + i + 1);
+    indices.push(bBotStart, bBotStart + i, bBotStart + i + 1);
   }
-  const botCount = indices.length - botIndexStart;
-  geom.addGroup(botIndexStart, botCount, gy === -1 ? 3 : 6);
+  geom.addGroup(bBotIdxStart, indices.length - bBotIdxStart, CORE_MAT_IDX);
 
-  // 3. Side walls
+  // 3. Side walls (body - black plastic)
   for (let i = 0; i < N; i++) {
     const p1 = localPoly[i];
     const p2 = localPoly[(i + 1) % N];
-    const wp1 = worldPoly[i];
-    const wp2 = worldPoly[(i + 1) % N];
-
-    const midX = (wp1.x + wp2.x) / 2;
-    const midZ = (wp1.z + wp2.z) / 2;
-
-    let matIdx = 6;
-    if (Math.abs(midX - W) < 0.02) matIdx = 0; // Right (Red)
-    else if (Math.abs(midX - (-W)) < 0.02) matIdx = 1; // Left (Orange)
-    else if (Math.abs(midZ - W) < 0.02) matIdx = 4; // Front (Green)
-    else if (Math.abs(midZ - (-W)) < 0.02) matIdx = 5; // Back (Blue)
-
-    const baseIdx = positions.length / 3;
-    positions.push(p1.x, halfH, p1.z);
-    positions.push(p2.x, halfH, p2.z);
-    positions.push(p2.x, -halfH, p2.z);
-    positions.push(p1.x, -halfH, p1.z);
 
     const dx = p2.x - p1.x;
     const dz = p2.z - p1.z;
     const len = Math.hypot(dx, dz) || 1;
     const nx = -dz / len;
     const nz = dx / len;
-    normals.push(nx, 0, nz);
-    normals.push(nx, 0, nz);
-    normals.push(nx, 0, nz);
-    normals.push(nx, 0, nz);
 
-    uvs.push(0, 1);
-    uvs.push(1, 1);
-    uvs.push(1, 0);
-    uvs.push(0, 0);
+    const baseIdx = positions.length / 3;
+    positions.push(p1.x, halfH, p1.z); normals.push(nx, 0, nz); uvs.push(0, 1);
+    positions.push(p2.x, halfH, p2.z); normals.push(nx, 0, nz); uvs.push(1, 1);
+    positions.push(p2.x, -halfH, p2.z); normals.push(nx, 0, nz); uvs.push(1, 0);
+    positions.push(p1.x, -halfH, p1.z); normals.push(nx, 0, nz); uvs.push(0, 0);
 
-    const sideIndexStart = indices.length;
+    const sIdxStart = indices.length;
     indices.push(baseIdx, baseIdx + 1, baseIdx + 2);
     indices.push(baseIdx, baseIdx + 2, baseIdx + 3);
-    geom.addGroup(sideIndexStart, 6, matIdx);
+    geom.addGroup(sIdxStart, 6, CORE_MAT_IDX);
+  }
+
+  // --- PART 2: Inset Colored Stickers with Crisp Black Borders ---
+  const stickerInset = 0.86;
+  const stickerOffset = 0.008;
+
+  // Top Cap Sticker (+Y: White, matIdx = 2)
+  if (gy === 1) {
+    const stickerPoly = localPoly.map(p => scalePoint(p, centroid, stickerInset));
+    const sTopStart = positions.length / 3;
+    const sy = halfH + stickerOffset;
+    stickerPoly.forEach(p => {
+      positions.push(p.x, sy, p.z);
+      normals.push(0, 1, 0);
+      uvs.push((p.x + 1.44) / 2.88, (p.z + 1.44) / 2.88);
+    });
+    const sTopIdxStart = indices.length;
+    for (let i = 1; i < N - 1; i++) {
+      indices.push(sTopStart, sTopStart + i + 1, sTopStart + i);
+    }
+    geom.addGroup(sTopIdxStart, indices.length - sTopIdxStart, 2);
+  }
+
+  // Bottom Cap Sticker (-Y: Yellow, matIdx = 3)
+  if (gy === -1) {
+    const stickerPoly = localPoly.map(p => scalePoint(p, centroid, stickerInset));
+    const sBotStart = positions.length / 3;
+    const sy = -halfH - stickerOffset;
+    stickerPoly.forEach(p => {
+      positions.push(p.x, sy, p.z);
+      normals.push(0, -1, 0);
+      uvs.push((p.x + 1.44) / 2.88, (p.z + 1.44) / 2.88);
+    });
+    const sBotIdxStart = indices.length;
+    for (let i = 1; i < N - 1; i++) {
+      indices.push(sBotStart, sBotStart + i, sBotStart + i + 1);
+    }
+    geom.addGroup(sBotIdxStart, indices.length - sBotIdxStart, 3);
+  }
+
+  // Side Wall Stickers
+  for (let i = 0; i < N; i++) {
+    const wp1 = worldPoly[i];
+    const wp2 = worldPoly[(i + 1) % N];
+    const midX = (wp1.x + wp2.x) / 2;
+    const midZ = (wp1.z + wp2.z) / 2;
+
+    let stickerMatIdx = -1;
+    if (Math.abs(midX - W) < 0.02) stickerMatIdx = 0; // Right (Red)
+    else if (Math.abs(midX - (-W)) < 0.02) stickerMatIdx = 1; // Left (Orange)
+    else if (Math.abs(midZ - W) < 0.02) stickerMatIdx = 4; // Front (Green)
+    else if (Math.abs(midZ - (-W)) < 0.02) stickerMatIdx = 5; // Back (Blue)
+
+    if (stickerMatIdx >= 0) {
+      const p1 = localPoly[i];
+      const p2 = localPoly[(i + 1) % N];
+      const edgeMid = { x: (p1.x + p2.x) / 2, z: (p1.z + p2.z) / 2 };
+
+      const sp1 = scalePoint(p1, edgeMid, 0.88);
+      const sp2 = scalePoint(p2, edgeMid, 0.88);
+
+      const dx = p2.x - p1.x;
+      const dz = p2.z - p1.z;
+      const len = Math.hypot(dx, dz) || 1;
+      const nx = -dz / len;
+      const nz = dx / len;
+
+      const offX = nx * stickerOffset;
+      const offZ = nz * stickerOffset;
+
+      const sYTop = halfH * 0.86;
+      const sYBot = -halfH * 0.86;
+
+      const sBaseIdx = positions.length / 3;
+      positions.push(sp1.x + offX, sYTop, sp1.z + offZ); normals.push(nx, 0, nz); uvs.push(0, 1);
+      positions.push(sp2.x + offX, sYTop, sp2.z + offZ); normals.push(nx, 0, nz); uvs.push(1, 1);
+      positions.push(sp2.x + offX, sYBot, sp2.z + offZ); normals.push(nx, 0, nz); uvs.push(1, 0);
+      positions.push(sp1.x + offX, sYBot, sp1.z + offZ); normals.push(nx, 0, nz); uvs.push(0, 0);
+
+      const sIdxStart = indices.length;
+      indices.push(sBaseIdx, sBaseIdx + 1, sBaseIdx + 2);
+      indices.push(sBaseIdx, sBaseIdx + 2, sBaseIdx + 3);
+      geom.addGroup(sIdxStart, 6, stickerMatIdx);
+    }
   }
 
   geom.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
