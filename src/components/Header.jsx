@@ -11,7 +11,8 @@ const ALL_QUICK_PUZZLES = [
   { id: 'pyraminx', shortName: 'Pyraminx', category: 'shape' },
   { id: 'megaminx', shortName: 'Megaminx', category: 'shape' },
   { id: 'skewb', shortName: 'Skewb', category: 'shape' },
-  { id: 'square-1', shortName: 'Square-1', category: 'shape' }
+  { id: 'square-1', shortName: 'Square-1', category: 'shape' },
+  { id: 'windmill', shortName: 'Windmill', category: 'shape' }
 ];
 
 export default function Header({

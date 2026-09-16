@@ -213,6 +213,18 @@ export const PRESETS_4X4 = Object.freeze([
 export const PRESETS_5X5 = Object.freeze([
   BASE_SOLVED_PRESET(5),
   {
+    id: 'full-reduction-5x5',
+    name: '5x5 Acak Penuh (Solusi Lengkap 6 Tahap)',
+    category: 'Solusi Lengkap',
+    desc: 'Kondisi acak komprehensif yang diselesaikan menggunakan seluruh 6 tahapan metode reduksi.',
+    stateDescription: 'Kondisi acak komprehensif untuk pembelajaran 6 tahap metode reduksi.',
+    setupMoves: "Rw U Rw' 2Rw U 2Rw' 3Rw U 3Rw' Uw' R U R' F R' F' R Uw F R U R' U' F' Rw2 B2 U2 Lw U2 Rw' U2 Rw U2 F2 Rw F2 Lw' B2 Rw2",
+    solutionMoves: "Rw2 B2 Lw F2 Rw' F2 U2 Rw' U2 Rw U2 Lw' U2 B2 Rw2 F R U R' U' F' Uw' R' F R F' R U' R' Uw 3Rw U' 3Rw' 2Rw' U' 2Rw' Rw U' Rw'",
+    algorithm: "Rw2 B2 Lw F2 Rw' F2 U2 Rw' U2 Rw U2 Lw' U2 B2 Rw2 F R U R' U' F' Uw' R' F R F' R U' R' Uw 3Rw U' 3Rw' 2Rw' U' 2Rw' Rw U' Rw'",
+    stage: 'all',
+    tips: 'Solusi lengkap mencakup Part 1 (Centers) hingga Part 6 (Parity & PLL).'
+  },
+  {
     id: 'wing-parity',
     name: '5x5 Wing Flip Parity',
     category: 'Parity',

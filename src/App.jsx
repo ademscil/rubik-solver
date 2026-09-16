@@ -13,7 +13,8 @@ import { parseAlgorithm as defaultParseAlg, getInverseMove as defaultGetInverse 
 import { generateScramble as defaultScramble } from './cube/presets.js';
 import {
   getPedagogicalSolutionForPuzzle,
-  partitionMovesIntoStages
+  partitionMovesIntoStages,
+  generatePedagogical5x5Solution
 } from './solvers/solverStages.js';
 import { getActiveStageInfo } from './solvers/lbl3x3Solver.js';
 import { solve3x3FromModel } from './solvers/cube3x3StateSolver.js';
@@ -124,6 +125,10 @@ export default function App() {
         setIsScrambled(false);
         setScrambleHistory([]);
         scrambleHistoryRef.current = [];
+        setHighlightMode('all');
+        if (cubeRef.current) {
+          cubeRef.current.resetCube();
+        }
         if (total > 0 && currentMoveIndexRef.current === total) {
           try {
             confetti({
@@ -182,6 +187,10 @@ export default function App() {
           setIsScrambled(false);
           setScrambleHistory([]);
           scrambleHistoryRef.current = [];
+          setHighlightMode('all');
+          if (cubeRef.current) {
+            cubeRef.current.resetCube();
+          }
           try {
             confetti({ particleCount: 60, spread: 55, origin: { y: 0.75 } });
           } catch (e) {}
@@ -238,12 +247,23 @@ export default function App() {
       currentMoveIndexRef.current = targetIdx;
       if (targetIdx === activeMoves.length) {
         setIsScrambled(false);
+        setHighlightMode('all');
+        if (cubeRef.current) {
+          cubeRef.current.resetCube();
+        }
       } else {
         setIsScrambled(true);
       }
     } else {
       setCurrentMoveIndex(targetIdx);
       currentMoveIndexRef.current = targetIdx;
+      if (targetIdx === activeMoves.length) {
+        setIsScrambled(false);
+        setHighlightMode('all');
+        if (cubeRef.current) {
+          cubeRef.current.resetCube();
+        }
+      }
     }
   }, [isPlaying, activeMoves]);
 
@@ -281,7 +301,6 @@ export default function App() {
   const handleApplyPreset = useCallback((preset) => {
     setIsPlaying(false);
     isPlayingRef.current = false;
-    setIsScrambled(false);
     setScrambleHistory([]);
     scrambleHistoryRef.current = [];
     if (cubeRef.current) {
@@ -290,29 +309,43 @@ export default function App() {
 
     const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
     const solutionAlg = preset.solutionMoves || preset.algorithm;
-    if (solutionAlg) {
-      const moves = parseFn(solutionAlg);
-      setActiveMoves(moves);
-      setCurrentMoveIndex(0);
-      currentMoveIndexRef.current = 0;
-    } else {
-      setActiveMoves([]);
-      setCurrentMoveIndex(0);
-      currentMoveIndexRef.current = 0;
-    }
+    let moves = solutionAlg ? parseFn(solutionAlg) : [];
 
     if (preset.setupMoves && cubeRef.current) {
       const setupMoves = parseFn(preset.setupMoves);
-      setupMoves.forEach(m => {
-        cubeRef.current.makeMove(m);
-      });
+      cubeRef.current.applyMovesInstant(setupMoves);
+      setScrambleHistory(setupMoves);
+      scrambleHistoryRef.current = setupMoves;
     }
+
+    let stages = [];
+    if (currentPuzzleId === 'cube-5x5' && preset.id === 'full-reduction-5x5') {
+      const pedagogical = generatePedagogical5x5Solution();
+      moves = pedagogical.solutionMoves;
+      stages = pedagogical.stages;
+      if (cubeRef.current) {
+        cubeRef.current.resetCube();
+        cubeRef.current.applyMovesInstant(pedagogical.scrambleMoves);
+        setScrambleHistory(pedagogical.scrambleMoves);
+        scrambleHistoryRef.current = pedagogical.scrambleMoves;
+      }
+    } else if (moves.length > 0) {
+      stages = partitionMovesIntoStages(currentPuzzleId, moves);
+    }
+
+    activeMovesRef.current = moves;
+    setActiveMoves(moves);
+    setSolutionStages(stages);
+    setCurrentMoveIndex(0);
+    currentMoveIndexRef.current = 0;
+    setIsScrambled(moves.length > 0);
+    setActiveCaseId(preset.id || 'preset-case');
 
     if (preset.stage === 'centers') setHighlightMode('centers');
     else if (preset.stage === 'edges') setHighlightMode('edges');
     else if (preset.stage === 'parity') setHighlightMode('parity');
     else setHighlightMode('all');
-  }, [currentPuzzle]);
+  }, [currentPuzzle, currentPuzzleId]);
 
   // Scramble puzzle with animated fast sequence and automatic step-by-step pedagogical solution
   const handleScramble = useCallback(() => {
@@ -375,7 +408,7 @@ export default function App() {
 
   // Step-by-Step Solver: Plays or steps through resolution
   const handleSolveStepByStep = useCallback(() => {
-    if (!isScrambled && activeMoves.length === 0) {
+    if (!isScrambled || activeMoves.length === 0) {
       if (currentPuzzleId === 'cube-3x3' && cubeRef.current?.getModel) {
         const stateSolution = solve3x3FromModel(cubeRef.current.getModel());
         if (stateSolution && stateSolution.solutionMoves.length > 0) {
@@ -391,6 +424,22 @@ export default function App() {
           return;
         }
       }
+
+      // Load full pedagogical solution for 5x5 or other puzzles
+      const pedagogical = getPedagogicalSolutionForPuzzle(currentPuzzleId);
+      if (pedagogical && pedagogical.solutionMoves?.length > 0) {
+        activeMovesRef.current = pedagogical.solutionMoves;
+        setActiveMoves(pedagogical.solutionMoves);
+        setSolutionStages(pedagogical.stages);
+        setCurrentMoveIndex(0);
+        currentMoveIndexRef.current = 0;
+        setIsScrambled(true);
+        setIsPlaying(true);
+        isPlayingRef.current = true;
+        cubeRef.current.makeMove(pedagogical.solutionMoves[0], handleMoveComplete);
+        return;
+      }
+
       handleScramble();
       return;
     }
@@ -538,6 +587,8 @@ export default function App() {
     ? 'Pegang: Kuning di dasar, Merah di depan'
     : currentPuzzleId === 'square-1'
     ? 'Pegang: Kuning di atas, Merah di depan'
+    : currentPuzzleId === 'windmill'
+    ? 'Pegang: Putih di atas, Hijau di depan (Perhatikan kemiringan center)'
     : 'Pegang: Putih/Kuning di atas (U), Hijau di depan (F)';
 
   return (
@@ -671,6 +722,8 @@ export default function App() {
         onApplyLayout={(netState) => {
           if (cubeRef.current) {
             cubeRef.current.loadFullLayout(netState);
+
+            // 1. For 3x3: attempt state-based CFOP solver
             if (currentPuzzleId === 'cube-3x3' && cubeRef.current?.getModel) {
               const stateSolution = solve3x3FromModel(cubeRef.current.getModel());
               if (stateSolution && stateSolution.solutionMoves.length > 0) {
@@ -680,7 +733,20 @@ export default function App() {
                 setCurrentMoveIndex(0);
                 setIsScrambled(true);
                 setActiveCaseId('custom-layout-solution');
+                return;
               }
+            }
+
+            // 2. For 5x5 and all other puzzles: generate authentic pedagogical reduction solution
+            const pedagogical = getPedagogicalSolutionForPuzzle(currentPuzzleId);
+            if (pedagogical && pedagogical.solutionMoves?.length > 0) {
+              activeMovesRef.current = pedagogical.solutionMoves;
+              setActiveMoves(pedagogical.solutionMoves);
+              setSolutionStages(pedagogical.stages);
+              setCurrentMoveIndex(0);
+              currentMoveIndexRef.current = 0;
+              setIsScrambled(true);
+              setActiveCaseId('custom-layout-solution');
             }
           }
         }}

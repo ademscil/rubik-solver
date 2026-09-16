@@ -26,7 +26,7 @@ export const DIFFICULTY_CONFIG = {
     colorHover: 'hover:border-amber-500/50 hover:bg-amber-950/20',
     dotColor: 'bg-amber-400',
     description: 'Tantangan baru: center bergerak bebas, pengenalan paritas, dan rotasi sumbu sudut.',
-    puzzles: ['cube-4x4', 'skewb']
+    puzzles: ['cube-4x4', 'skewb', 'windmill']
   },
   advanced: {
     id: 'advanced',
@@ -95,7 +95,7 @@ export default function PuzzleSelector({
                   Pilih Rubik & Twisty Puzzle
                 </h2>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-500/20 text-sky-300 border border-sky-500/30 uppercase tracking-wider">
-                  10 Varian WCA
+                  11 Varian Lengkap
                 </span>
               </div>
               <p className="text-xs text-slate-400 mt-0.5">
@@ -123,7 +123,7 @@ export default function PuzzleSelector({
                 : 'text-slate-400 hover:text-white hover:bg-slate-800/60'
             }`}
           >
-            Semua (10 Puzzle)
+            Semua (11 Puzzle)
           </button>
           {tiers.map((tier) => (
             <button

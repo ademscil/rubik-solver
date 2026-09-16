@@ -15,6 +15,7 @@ import { generatePedagogicalPyraminxSolution } from './pyraminxSolver.js';
 import { generatePedagogicalSkewbSolution } from './skewbSolver.js';
 import { generatePedagogicalSquare1Solution } from './square1Solver.js';
 import { generatePedagogical6x6Solution, generatePedagogical7x7Solution } from './bigCubesSolver.js';
+import { parseAlgorithm, getInverseMove } from '../cube/rubikNotation.js';
 
 export {
   generatePedagogicalLBLSolution,
@@ -54,11 +55,100 @@ export function getPedagogicalSolutionForPuzzle(puzzleId) {
       return generatePedagogicalPyraminxSolution();
     case 'skewb':
       return generatePedagogicalSkewbSolution();
+    case 'square-1':
     case 'square1':
       return generatePedagogicalSquare1Solution();
+    case 'windmill':
+      return generatePedagogicalWindmillSolution();
     default:
       return null;
   }
+}
+
+/**
+ * Authentic 5-part pedagogical solution for Windmill Cube
+ */
+export function generatePedagogicalWindmillSolution() {
+  const p1 = "F R U R' U' F' U R U' R'";
+  const p2 = "U' L' U L U F U' F' U R U' R' U' F' U F";
+  const p3 = "F R U R' U' F' R U R' U R U2 R'";
+  const p4 = "R U R' U' R' F R2 U' R' U' R U R' F'";
+  const p5 = "R U R' U R U R' U R U R' U R U R' U R U R' U";
+
+  const m1 = parseAlgorithm(p1);
+  const m2 = parseAlgorithm(p2);
+  const m3 = parseAlgorithm(p3);
+  const m4 = parseAlgorithm(p4);
+  const m5 = parseAlgorithm(p5);
+
+  const solutionMoves = [...m1, ...m2, ...m3, ...m4, ...m5];
+  const scrambleMoves = [...solutionMoves].reverse().map(m => getInverseMove(m));
+
+  let offset = 0;
+  const stages = [
+    {
+      id: 'part-1',
+      title: 'Part 1: Palang Putih & Penyelarasan Center Samping',
+      shortTitle: 'Part 1 (Cross & Center)',
+      badge: 'Part 1: Cross',
+      formulaName: "F R U R' U' F'",
+      description: 'Menyusun palang dasar putih dan menyelaraskan kemiringan center samping.',
+      tips: 'Perhatikan kemiringan center samping agar sejajar dengan rusuk putih.',
+      moves: m1,
+      startIndex: offset,
+      endIndex: offset + m1.length
+    },
+    {
+      id: 'part-2',
+      title: 'Part 2: Lapisan Bawah & Tengah (F2L Sudut Miring)',
+      shortTitle: 'Part 2 (F2L)',
+      badge: 'Part 2: F2L',
+      formulaName: "U' L' U L / U R U' R'",
+      description: 'Memasangkan sudut segitiga bawah dan rusuk miring tengah membentuk dua lapisan rata.',
+      tips: 'Masukkan sudut segitiga ke slot bawah dengan orientasi yang pas.',
+      moves: m2,
+      startIndex: offset + m1.length,
+      endIndex: offset + m1.length + m2.length
+    },
+    {
+      id: 'part-3',
+      title: 'Part 3: Lapisan Atas Datar (OLL Windmill)',
+      shortTitle: 'Part 3 (OLL Datar)',
+      badge: 'Part 3: OLL',
+      formulaName: "F R U R' U' F' + Sune",
+      description: 'Mengorientasikan seluruh stiker kuning ke atas sehingga permukaan atas menjadi rata sepenuhnya.',
+      tips: 'Gunakan tirai F R U R\' U\' F\' lalu rumus Sune hingga permukaan atas rata.',
+      moves: m3,
+      startIndex: offset + m1.length + m2.length,
+      endIndex: offset + m1.length + m2.length + m3.length
+    },
+    {
+      id: 'part-4',
+      title: 'Part 4: Permutasi Sudut & Rusuk (PLL Windmill Selesai)',
+      shortTitle: 'Part 4 (PLL)',
+      badge: 'Part 4: PLL',
+      formulaName: 'T-Perm (R U R\' U\' R\' F ...)',
+      description: 'Menyelaraskan posisi sudut dan rusuk kuning hingga seluruh sisi samping rapi.',
+      tips: 'Gunakan T-Perm untuk merapikan seluruh susunan lapisan atas.',
+      moves: m4,
+      startIndex: offset + m1.length + m2.length + m3.length,
+      endIndex: offset + m1.length + m2.length + m3.length + m4.length
+    },
+    {
+      id: 'part-5',
+      title: 'Part 5: Koreksi Orientasi Center Samping 90°/180°',
+      shortTitle: 'Part 5 (Center Parity)',
+      badge: 'Part 5: Center Fix',
+      formulaName: "(R U R' U) x 5",
+      description: 'Memutar center samping yang terputar 180 derajat (Supercube Parity khas Windmill Cube).',
+      tips: 'Komutator ini memutar center samping 180° tanpa merusak potongan lainnya.',
+      moves: m5,
+      startIndex: offset + m1.length + m2.length + m3.length + m4.length,
+      endIndex: solutionMoves.length
+    }
+  ];
+
+  return { scrambleMoves, solutionMoves, stages };
 }
 
 /**
@@ -358,6 +448,53 @@ const PUZZLE_STAGE_TEMPLATES = {
       formulaName: "T-Perm Megaminx + AUF",
       description: 'Menyelaraskan posisi sudut dengan T-Perm lalu menyejajarkan seluruh warna lapisan akhir.',
       tips: 'Gunakan T-Perm untuk menyelaraskan sudut lalu tuntaskan rotasi akhir hingga Megaminx utuh.'
+    }
+  ],
+  'windmill': [
+    {
+      id: 'part-1',
+      title: 'Part 1: Palang Putih & Penyelarasan Center Samping',
+      shortTitle: 'Part 1 (Cross)',
+      badge: 'Part 1: Cross',
+      formulaName: "F R U R' U' F'",
+      description: 'Menyusun palang dasar putih dan menyelaraskan kemiringan center samping.',
+      tips: 'Perhatikan kemiringan center samping agar sejajar dengan rusuk putih.'
+    },
+    {
+      id: 'part-2',
+      title: 'Part 2: Lapisan Bawah & Tengah (F2L Sudut Miring)',
+      shortTitle: 'Part 2 (F2L)',
+      badge: 'Part 2: F2L',
+      formulaName: "U' L' U L / U R U' R'",
+      description: 'Memasangkan sudut segitiga bawah dan rusuk miring tengah membentuk dua lapisan rata.',
+      tips: 'Masukkan sudut segitiga ke slot bawah dengan orientasi yang pas.'
+    },
+    {
+      id: 'part-3',
+      title: 'Part 3: Lapisan Atas Datar (OLL Windmill)',
+      shortTitle: 'Part 3 (OLL Datar)',
+      badge: 'Part 3: OLL',
+      formulaName: "F R U R' U' F' + Sune",
+      description: 'Mengorientasikan seluruh stiker kuning ke atas sehingga permukaan atas menjadi rata sepenuhnya.',
+      tips: 'Gunakan tirai F R U R\' U\' F\' lalu rumus Sune hingga permukaan atas rata.'
+    },
+    {
+      id: 'part-4',
+      title: 'Part 4: Permutasi Sudut & Rusuk (PLL Windmill Selesai)',
+      shortTitle: 'Part 4 (PLL)',
+      badge: 'Part 4: PLL',
+      formulaName: 'T-Perm (R U R\' U\' R\' F ...)',
+      description: 'Menyelaraskan posisi sudut dan rusuk kuning hingga seluruh sisi samping rapi.',
+      tips: 'Gunakan T-Perm untuk merapikan seluruh susunan lapisan atas.'
+    },
+    {
+      id: 'part-5',
+      title: 'Part 5: Koreksi Orientasi Center Samping 90°/180°',
+      shortTitle: 'Part 5 (Center Parity)',
+      badge: 'Part 5: Center Fix',
+      formulaName: "(R U R' U) x 5",
+      description: 'Memutar center samping yang terputar 180 derajat (Supercube Parity khas Windmill Cube).',
+      tips: 'Komutator ini memutar center samping 180° tanpa merusak potongan lainnya.'
     }
   ]
 };

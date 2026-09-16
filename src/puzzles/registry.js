@@ -192,6 +192,28 @@ export const WCA_PUZZLE_METADATA = {
 };
 
 /**
+ * Shape modifications and non-WCA puzzle catalog
+ */
+export const SHAPE_MOD_METADATA = {
+  'windmill': {
+    id: 'windmill',
+    wcaId: 'wind',
+    name: 'Windmill Cube (Katsuhiko Okamoto)',
+    shortName: 'Windmill',
+    category: 'shape',
+    difficulty: 'intermediate',
+    difficultyLabel: 'Menengah',
+    faceCount: 6,
+    defaultCameraDistance: 8.0,
+    minCameraDistance: 5.0,
+    maxCameraDistance: 20.0,
+    description: 'Puzzle perubahan bentuk (shape-mod) karya Katsuhiko Okamoto dengan irisan miring 26.56°.',
+    hasParity: true,
+    loaded: false
+  }
+};
+
+/**
  * Mapping of alternate IDs, abbreviations, and WCA codes to canonical IDs
  * @type {Record<string, string>}
  */
@@ -272,7 +294,13 @@ export const PUZZLE_ALIASES = Object.freeze({
   'square1': 'square-1',
   'square-1': 'square-1',
   'square 1': 'square-1',
-  'sq 1': 'square-1'
+  'sq 1': 'square-1',
+
+  // 11. Windmill Cube (Shape-mod)
+  'windmill': 'windmill',
+  'windmill-cube': 'windmill',
+  'wind': 'windmill',
+  'okamoto': 'windmill'
 });
 
 /**
@@ -405,7 +433,7 @@ export class PuzzleRegistry {
    */
   getMetadata(id) {
     const canonicalId = normalizePuzzleId(id);
-    const meta = WCA_PUZZLE_METADATA[canonicalId];
+    const meta = WCA_PUZZLE_METADATA[canonicalId] || SHAPE_MOD_METADATA[canonicalId];
     if (!meta) return null;
     return {
       ...meta,
@@ -581,6 +609,11 @@ puzzleRegistry.register('square-1', async () => {
 puzzleRegistry.register('square1', async () => {
   const mod = await import('./square1/square1.js');
   return mod.square1Definition;
+});
+
+puzzleRegistry.register('windmill', async () => {
+  const mod = await import('./windmill/windmill.js');
+  return mod.windmillDefinition;
 });
 
 // Export convenience helpers
