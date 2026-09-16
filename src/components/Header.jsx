@@ -1,8 +1,23 @@
 import React, { useState, useMemo } from 'react';
 import { Eye, RotateCw, Shuffle, RotateCcw, HelpCircle, Palette, Box, ChevronDown, Layers, Sparkles } from 'lucide-react';
 
+const ALL_QUICK_PUZZLES = [
+  { id: 'cube-2x2', shortName: '2x2', category: 'nxn' },
+  { id: 'cube-3x3', shortName: '3x3', category: 'nxn' },
+  { id: 'cube-4x4', shortName: '4x4', category: 'nxn' },
+  { id: 'cube-5x5', shortName: '5x5', category: 'nxn' },
+  { id: 'cube-6x6', shortName: '6x6', category: 'nxn' },
+  { id: 'cube-7x7', shortName: '7x7', category: 'nxn' },
+  { id: 'pyraminx', shortName: 'Pyraminx', category: 'shape' },
+  { id: 'megaminx', shortName: 'Megaminx', category: 'shape' },
+  { id: 'skewb', shortName: 'Skewb', category: 'shape' },
+  { id: 'square-1', shortName: 'Square-1', category: 'shape' }
+];
+
 export default function Header({
   puzzle,
+  currentPuzzleId = 'cube-3x3',
+  onSelectPuzzle,
   isInspectMode,
   onToggleInspectMode,
   onOpenPuzzleSelector,
@@ -197,6 +212,34 @@ export default function Header({
           >
             <HelpCircle className="w-4 h-4" />
           </button>
+        </div>
+      </div>
+
+      {/* Quick Puzzle Switcher Bar (seperti di CubeSimulator) */}
+      <div className="pt-1.5 border-t border-slate-800/60 flex items-center gap-1.5 overflow-x-auto scrollbar-none py-0.5">
+        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider whitespace-nowrap mr-1 flex items-center gap-1">
+          <Layers className="w-3.5 h-3.5 text-sky-400" />
+          <span className="hidden sm:inline">Pilih Rubik:</span>
+        </span>
+        <div className="flex items-center gap-1.5">
+          {ALL_QUICK_PUZZLES.map((p) => {
+            const isActive = p.id === currentPuzzleId;
+            return (
+              <button
+                key={p.id}
+                onClick={() => onSelectPuzzle?.(p.id)}
+                className={`px-2.5 py-1 rounded-xl text-[11px] font-bold whitespace-nowrap transition-all flex items-center gap-1 border shadow-sm ${
+                  isActive
+                    ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white border-sky-400 shadow-sky-500/25 scale-102'
+                    : 'bg-slate-850/90 text-slate-300 border-slate-700/60 hover:bg-slate-800 hover:text-white hover:border-slate-500'
+                }`}
+                title={`Ganti ke ${p.shortName}`}
+              >
+                {isActive && <span className="w-1.5 h-1.5 rounded-full bg-emerald-300 animate-pulse" />}
+                <span>{p.shortName}</span>
+              </button>
+            );
+          })}
         </div>
       </div>
 

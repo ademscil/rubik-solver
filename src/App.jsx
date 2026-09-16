@@ -479,13 +479,74 @@ export default function App() {
     });
   }, [currentPuzzle, currentPuzzleId]);
 
+  // Keyboard Shortcuts (Space: Play/Pause, Arrows: Step Prev/Next, R/L/U/D/F/B: Quick moves)
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      const tag = e.target?.tagName?.toLowerCase();
+      if (tag === 'input' || tag === 'textarea' || tag === 'select' || e.target?.isContentEditable) {
+        return;
+      }
+      if (isPuzzleSelectorOpen || isNotationModalOpen || isCustomLayoutOpen) {
+        if (e.key === 'Escape') {
+          setIsPuzzleSelectorOpen(false);
+          setIsNotationModalOpen(false);
+          setIsCustomLayoutOpen(false);
+        }
+        return;
+      }
+
+      if (e.code === 'Space' || e.key === ' ') {
+        e.preventDefault();
+        if (isScrambled || activeMoves.length > 0) {
+          handlePlayToggle();
+        } else {
+          handleSolveStepByStep();
+        }
+      } else if (e.key === 'ArrowRight') {
+        e.preventDefault();
+        handleStepNext();
+      } else if (e.key === 'ArrowLeft') {
+        e.preventDefault();
+        handleStepPrev();
+      } else {
+        const key = e.key.toUpperCase();
+        if (['R', 'L', 'U', 'D', 'F', 'B'].includes(key)) {
+          const move = e.shiftKey ? `${key}'` : key;
+          handleQuickMove(move);
+        }
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [
+    isScrambled,
+    activeMoves.length,
+    handlePlayToggle,
+    handleSolveStepByStep,
+    handleStepNext,
+    handleStepPrev,
+    handleQuickMove,
+    isPuzzleSelectorOpen,
+    isNotationModalOpen,
+    isCustomLayoutOpen
+  ]);
+
   const currentActiveStage = getActiveStageInfo(solutionStages, currentMoveIndex);
+
+  const orientationHint = currentPuzzleId === 'pyraminx'
+    ? 'Pegang: Kuning di dasar, Merah di depan'
+    : currentPuzzleId === 'square-1'
+    ? 'Pegang: Kuning di atas, Merah di depan'
+    : 'Pegang: Putih/Kuning di atas (U), Hijau di depan (F)';
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
       {/* Top Navigation Header */}
       <Header
         puzzle={currentPuzzle}
+        currentPuzzleId={currentPuzzleId}
+        onSelectPuzzle={handleSelectPuzzle}
         isInspectMode={isInspectMode}
         onToggleInspectMode={() => setIsInspectMode(!isInspectMode)}
         onOpenPuzzleSelector={() => setIsPuzzleSelectorOpen(true)}
@@ -539,6 +600,20 @@ export default function App() {
                   <span className="font-mono text-white truncate">{currentActiveStage.formulaName}</span>
                 </div>
               )}
+
+              {/* Grubiks-Style Orientation & Tips Guidance */}
+              <div className="flex flex-col gap-1 pt-1 border-t border-slate-800/60 text-[10px]">
+                <div className="flex items-center gap-1.5 text-slate-300 bg-slate-950/40 rounded-lg px-2 py-0.5 border border-slate-800/40">
+                  <span className="text-sky-400 font-semibold shrink-0">🧭 Posisi:</span>
+                  <span className="truncate">{orientationHint}</span>
+                </div>
+                {currentActiveStage && currentActiveStage.tips && (
+                  <div className="flex items-center gap-1.5 text-amber-200/90 bg-amber-950/30 rounded-lg px-2 py-0.5 border border-amber-800/40">
+                    <span className="text-amber-400 font-semibold shrink-0">💡 Tips:</span>
+                    <span className="truncate">{currentActiveStage.tips}</span>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
