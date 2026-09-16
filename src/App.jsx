@@ -435,6 +435,7 @@ export default function App() {
         // Compute solution as inverse sequence of all moves performed
         const solutionMoves = [...next].reverse().map((m) => getInverseFn(m));
         const stages = partitionMovesIntoStages(currentPuzzleId, solutionMoves);
+        activeMovesRef.current = solutionMoves;
         setActiveMoves(solutionMoves);
         setSolutionStages(stages);
         setCurrentMoveIndex(0);
