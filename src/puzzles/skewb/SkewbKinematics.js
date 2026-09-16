@@ -114,21 +114,36 @@ export function animateSkewbMove(modelGroup, moveStr, onComplete, duration = 300
     return;
   }
 
-  // Corner turn: rotate only the half belonging to this corner!
-  const activeMeshes = [];
-  modelGroup.traverse((child) => {
-    if (child.isMesh && (child.name.startsWith('center-') || child.name.startsWith('corner-') || child.parent?.name.startsWith('face-'))) {
+  // Corner turn: rotate the 4 corner pieces and 3 center pieces as solid units!
+  const activePieces = [];
+  modelGroup.children.forEach((child) => {
+    if (child.name && (child.name.startsWith('corner-piece-') || child.name.startsWith('center-piece-'))) {
       const box = new THREE.Box3().setFromObject(child);
       const worldCenter = new THREE.Vector3();
       box.getCenter(worldCenter);
       const localCenter = modelGroup.worldToLocal(worldCenter.clone());
       if (localCenter.dot(axis) > 0.05) {
-        activeMeshes.push(child);
+        activePieces.push(child);
       }
     }
   });
 
-  if (activeMeshes.length === 0) {
+  // Fallback if pieces are direct mesh children
+  if (activePieces.length === 0) {
+    modelGroup.traverse((child) => {
+      if (child.isMesh && (child.name.startsWith('center-') || child.name.startsWith('corner-') || child.name.startsWith('core-'))) {
+        const box = new THREE.Box3().setFromObject(child);
+        const worldCenter = new THREE.Vector3();
+        box.getCenter(worldCenter);
+        const localCenter = modelGroup.worldToLocal(worldCenter.clone());
+        if (localCenter.dot(axis) > 0.05) {
+          activePieces.push(child);
+        }
+      }
+    });
+  }
+
+  if (activePieces.length === 0) {
     onComplete?.();
     return;
   }
@@ -144,10 +159,10 @@ export function animateSkewbMove(modelGroup, moveStr, onComplete, duration = 300
     modelGroup.add(pivot);
   }
 
-  activeMeshes.forEach(mesh => pivot.attach(mesh));
+  activePieces.forEach(mesh => pivot.attach(mesh));
 
   const finalize = () => {
-    activeMeshes.forEach(mesh => modelGroup.attach(mesh));
+    activePieces.forEach(mesh => modelGroup.attach(mesh));
     if (pivot.parent) pivot.parent.remove(pivot);
     modelGroup.updateMatrixWorld(true);
     onComplete?.();

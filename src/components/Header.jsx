@@ -9,6 +9,7 @@ export default function Header({
   onScramble,
   onSolve,
   isScrambled = false,
+  isScrambling = false,
   onResetCube,
   onOpenNotationModal,
   onOpenCustomLayout,
@@ -145,11 +146,14 @@ export default function Header({
           {/* Scramble Button */}
           <button
             onClick={onScramble}
-            className="px-3 py-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700/80 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm"
+            disabled={isScrambling}
+            className={`px-3 py-1.5 bg-slate-850 hover:bg-slate-800 text-slate-200 border border-slate-700/80 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition-colors shadow-sm ${
+              isScrambling ? 'opacity-70 cursor-wait' : ''
+            }`}
             title="Acak Puzzle (Scramble WCA)"
           >
-            <Shuffle className="w-3.5 h-3.5 text-amber-400" />
-            <span className="hidden sm:inline">Acak</span>
+            <Shuffle className={`w-3.5 h-3.5 text-amber-400 ${isScrambling ? 'animate-spin' : ''}`} />
+            <span className="hidden sm:inline">{isScrambling ? 'Mengacak...' : 'Acak'}</span>
           </button>
 
           {/* Selesaikan Step-by-Step Button */}

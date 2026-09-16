@@ -11,7 +11,7 @@ import PuzzleSelector from './components/PuzzleSelector';
 import { puzzleRegistry } from './puzzles/registry.js';
 import { parseAlgorithm as defaultParseAlg, getInverseMove as defaultGetInverse } from './cube/rubikNotation.js';
 import { generateScramble as defaultScramble } from './cube/presets.js';
-import { generatePedagogicalLBLSolution, partitionMovesIntoStages } from './solvers/solverStages.js';
+import { generatePedagogicalLBLSolution, generatePedagogical5x5Solution, partitionMovesIntoStages } from './solvers/solverStages.js';
 import { getActiveStageInfo } from './solvers/lbl3x3Solver.js';
 
 export default function App() {
@@ -23,6 +23,7 @@ export default function App() {
 
   // Scramble / Auto-Solver State
   const [isScrambled, setIsScrambled] = useState(false);
+  const [isScrambling, setIsScrambling] = useState(false);
   const [scrambleHistory, setScrambleHistory] = useState([]);
   const scrambleHistoryRef = useRef([]);
   scrambleHistoryRef.current = scrambleHistory;
@@ -119,14 +120,16 @@ export default function App() {
         setIsScrambled(false);
         setScrambleHistory([]);
         scrambleHistoryRef.current = [];
-        try {
-          confetti({
-            particleCount: 85,
-            spread: 65,
-            origin: { y: 0.7 }
-          });
-        } catch (e) {
-          // ignore
+        if (total > 0 && currentMoveIndexRef.current === total) {
+          try {
+            confetti({
+              particleCount: 85,
+              spread: 65,
+              origin: { y: 0.7 }
+            });
+          } catch (e) {
+            // ignore
+          }
         }
       }
     }
@@ -307,48 +310,70 @@ export default function App() {
     else setHighlightMode('all');
   }, [currentPuzzle]);
 
-  // Scramble puzzle with automatic step-by-step pedagogical solution preparation
+  // Scramble puzzle with animated fast sequence and automatic step-by-step pedagogical solution
   const handleScramble = useCallback(() => {
+    if (isScrambling || isPlaying || cubeRef.current?.isBusy()) return;
+
     setIsPlaying(false);
     isPlayingRef.current = false;
     if (!cubeRef.current) return;
 
     cubeRef.current.resetCube();
 
+    let scrambleMoves = [];
+    let solutionMoves = [];
+    let stages = [];
+
     if (currentPuzzleId === 'cube-3x3') {
       const pedagogical = generatePedagogicalLBLSolution();
-      cubeRef.current.applyMovesInstant(pedagogical.scrambleMoves);
-      setScrambleHistory(pedagogical.scrambleMoves);
-      scrambleHistoryRef.current = pedagogical.scrambleMoves;
+      scrambleMoves = pedagogical.scrambleMoves;
+      solutionMoves = pedagogical.solutionMoves;
+      stages = pedagogical.stages;
+    } else if (currentPuzzleId === 'cube-5x5') {
+      const pedagogical = generatePedagogical5x5Solution();
+      scrambleMoves = pedagogical.scrambleMoves;
+      solutionMoves = pedagogical.solutionMoves;
+      stages = pedagogical.stages;
+    } else {
+      const scrambleFn = currentPuzzle?.generateScramble || defaultScramble;
+      const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
+      const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
+
+      const scrambleLength = currentPuzzle?.category === 'shape' ? 8 : 15;
+      const scrambleStr = scrambleFn(scrambleLength);
+      scrambleMoves = parseFn(scrambleStr);
+      solutionMoves = [...scrambleMoves].reverse().map(m => getInverseFn(m));
+      stages = partitionMovesIntoStages(currentPuzzleId, solutionMoves);
+    }
+
+    // Limit animated scramble moves to 12 max for snappy, exciting 1-second animation
+    const animMoves = scrambleMoves.slice(0, 12);
+    const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
+    const appliedSolution = (animMoves.length === scrambleMoves.length)
+      ? solutionMoves
+      : [...animMoves].reverse().map(m => getInverseFn(m));
+    const appliedStages = (animMoves.length === scrambleMoves.length)
+      ? stages
+      : partitionMovesIntoStages(currentPuzzleId, appliedSolution);
+
+    setIsScrambling(true);
+    setIsScrambled(false);
+    setActiveMoves([]);
+    setCurrentMoveIndex(0);
+
+    // Run rapid scramble animation (85ms per move = ~1 second total)
+    cubeRef.current.animateSequence(animMoves, 85, () => {
+      setIsScrambling(false);
+      setScrambleHistory(animMoves);
+      scrambleHistoryRef.current = animMoves;
       setIsScrambled(true);
-      setActiveMoves(pedagogical.solutionMoves);
-      setSolutionStages(pedagogical.stages);
+      setActiveMoves(appliedSolution);
+      setSolutionStages(appliedStages);
       setCurrentMoveIndex(0);
       currentMoveIndexRef.current = 0;
       setActiveCaseId('auto-solve-step-by-step');
-      return;
-    }
-
-    const scrambleFn = currentPuzzle?.generateScramble || defaultScramble;
-    const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
-    const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
-
-    const scrambleLength = currentPuzzle?.category === 'shape' ? 10 : 20;
-    const scrambleStr = scrambleFn(scrambleLength);
-    const scrambleMoves = parseFn(scrambleStr);
-    const solutionMoves = [...scrambleMoves].reverse().map(m => getInverseFn(m));
-    const stages = partitionMovesIntoStages(currentPuzzleId, solutionMoves);
-
-    cubeRef.current.applyMovesInstant(scrambleMoves);
-    setScrambleHistory(scrambleMoves);
-    scrambleHistoryRef.current = scrambleMoves;
-    setIsScrambled(true);
-    setActiveMoves(solutionMoves);
-    setSolutionStages(stages);
-    setCurrentMoveIndex(0);
-    currentMoveIndexRef.current = 0;
-    setActiveCaseId('auto-solve-step-by-step');
-  }, [currentPuzzle, currentPuzzleId]);
+    });
+  }, [currentPuzzle, currentPuzzleId, isScrambling, isPlaying]);
 
   // Step-by-Step Solver: Plays or steps through resolution
   const handleSolveStepByStep = useCallback(() => {
@@ -437,6 +462,7 @@ export default function App() {
         onScramble={handleScramble}
         onSolve={handleSolveStepByStep}
         isScrambled={isScrambled}
+        isScrambling={isScrambling}
         onResetCube={handleResetCube}
         onOpenNotationModal={() => setIsNotationModalOpen(true)}
         onOpenCustomLayout={() => setIsCustomLayoutOpen(true)}

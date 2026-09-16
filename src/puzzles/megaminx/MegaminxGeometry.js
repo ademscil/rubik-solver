@@ -213,21 +213,65 @@ export function buildMegaminxModel(options = {}) {
       return;
     }
 
-    // A. Center Regular Pentagon (1 piece)
-    const centerFactor = 0.40;
-    const centerVerts = verts.map(v => {
-      return new THREE.Vector3().lerpVectors(center, v, centerFactor).addScaledVector(normal, normalOffset);
-    });
+    // 2D orthonormal basis on the face plane
+    const e1 = new THREE.Vector3().subVectors(verts[0], center).normalize();
+    const e2 = new THREE.Vector3().crossVectors(normal, e1).normalize();
 
-    const centerGeom = new THREE.BufferGeometry();
-    const cv = [];
-    for (let k = 1; k < 4; k++) {
-      cv.push(
-        ...centerVerts[0].toArray(),
-        ...centerVerts[k].toArray(),
-        ...centerVerts[k + 1].toArray()
-      );
+    const to2D = (v) => {
+      const d = new THREE.Vector3().subVectors(v, center);
+      return { x: d.dot(e1), y: d.dot(e2) };
+    };
+
+    const to3D = (p2d, offset = normalOffset) => {
+      return center.clone()
+        .addScaledVector(e1, p2d.x)
+        .addScaledVector(e2, p2d.y)
+        .addScaledVector(normal, offset);
+    };
+
+    function lineIntersect(p1, p2, p3, p4) {
+      const denom = (p1.x - p2.x) * (p3.y - p4.y) - (p1.y - p2.y) * (p3.x - p4.x);
+      if (Math.abs(denom) < 1e-6) return { x: (p1.x + p2.x) / 2, y: (p1.y + p2.y) / 2 };
+      const t = ((p1.x - p3.x) * (p3.y - p4.y) - (p1.y - p3.y) * (p3.x - p4.x)) / denom;
+      return { x: p1.x + t * (p2.x - p1.x), y: p1.y + t * (p2.y - p1.y) };
     }
+
+    function insetPoly(pts, factor = 0.94) {
+      const gx = pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
+      const gy = pts.reduce((sum, p) => sum + p.y, 0) / pts.length;
+      return pts.map(p => ({
+        x: gx + factor * (p.x - gx),
+        y: gy + factor * (p.y - gy)
+      }));
+    }
+
+    const V = verts.map(to2D);
+    const alpha = 0.44; // Proportional scale for center pentagon
+    const P = V.map(v => ({ x: alpha * v.x, y: alpha * v.y }));
+
+    // 5 straight cut lines extending the 5 edges of the center pentagon
+    const cuts = [];
+    for (let k = 0; k < 5; k++) {
+      const p0 = P[k];
+      const p1 = P[(k + 1) % 5];
+      const vPrev = V[(k + 4) % 5];
+      const v0 = V[k];
+      const v1 = V[(k + 1) % 5];
+      const vNext = V[(k + 2) % 5];
+      const qLeft = lineIntersect(p0, p1, vPrev, v0);
+      const qRight = lineIntersect(p0, p1, v1, vNext);
+      cuts.push({ qLeft, qRight });
+    }
+
+    // A. Center Regular Pentagon (1 piece)
+    const c2D = insetPoly(P, 0.94);
+    const c3D = c2D.map(p => to3D(p));
+    const centerGeom = new THREE.BufferGeometry();
+    const cv = [
+      ...c3D[0].toArray(), ...c3D[1].toArray(), ...c3D[2].toArray(),
+      ...c3D[0].toArray(), ...c3D[2].toArray(), ...c3D[3].toArray(),
+      ...c3D[0].toArray(), ...c3D[3].toArray(), ...c3D[4].toArray()
+    ];
     centerGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cv), 3));
     centerGeom.computeVertexNormals();
 
@@ -237,55 +281,17 @@ export function buildMegaminxModel(options = {}) {
     faceGroup.add(centerMesh);
 
     // B. 5 Edge Stickers (Trapezoids) & 5 Corner Stickers (Kites)
-    const innerFactor = 0.44;
-    const outerFactor = 0.92;
-    const sideFactor = 0.88;
-
     for (let k = 0; k < 5; k++) {
-      const v0 = verts[k];
-      const v1 = verts[(k + 1) % 5];
-
-      // Edge Trapezoid between v0 and v1
-      const inner0 = new THREE.Vector3().lerpVectors(center, v0, innerFactor);
-      const inner1 = new THREE.Vector3().lerpVectors(center, v1, innerFactor);
-      const eInner0 = new THREE.Vector3().lerpVectors(inner0, inner1, 0.12).addScaledVector(normal, normalOffset);
-      const eInner1 = new THREE.Vector3().lerpVectors(inner1, inner0, 0.12).addScaledVector(normal, normalOffset);
-
-      const outer0 = new THREE.Vector3().lerpVectors(center, v0, sideFactor);
-      const outer1 = new THREE.Vector3().lerpVectors(center, v1, sideFactor);
-      const eOuter0 = new THREE.Vector3().lerpVectors(outer0, outer1, 0.18).addScaledVector(normal, normalOffset);
-      const eOuter1 = new THREE.Vector3().lerpVectors(outer1, outer0, 0.18).addScaledVector(normal, normalOffset);
-
-      const edgeGeom = new THREE.BufferGeometry();
-      const ev = [
-        ...eInner0.toArray(), ...eOuter0.toArray(), ...eOuter1.toArray(),
-        ...eInner0.toArray(), ...eOuter1.toArray(), ...eInner1.toArray()
-      ];
-      edgeGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ev), 3));
-      edgeGeom.computeVertexNormals();
-
-      const edgeMesh = new THREE.Mesh(edgeGeom, stickerMat);
-      edgeMesh.name = `sticker-${faceSpec.id}-edge-${k}`;
-      edgeMesh.userData = { faceId: faceSpec.id, pieceType: 'edge', faceIndex: faceIdx, edgeIndex: k };
-      faceGroup.add(edgeMesh);
-
-      // Corner Kite around vertex v0
-      const prevV = verts[(k + 4) % 5];
-      const nextV = verts[(k + 1) % 5];
-
-      const cTip = new THREE.Vector3().lerpVectors(center, v0, outerFactor).addScaledVector(normal, normalOffset);
-      const cBase = new THREE.Vector3().lerpVectors(center, v0, innerFactor).addScaledVector(normal, normalOffset);
-
-      const sideL = new THREE.Vector3().lerpVectors(v0, prevV, 0.22);
-      const cSideL = new THREE.Vector3().lerpVectors(center, sideL, sideFactor).addScaledVector(normal, normalOffset);
-
-      const sideR = new THREE.Vector3().lerpVectors(v0, nextV, 0.22);
-      const cSideR = new THREE.Vector3().lerpVectors(center, sideR, sideFactor).addScaledVector(normal, normalOffset);
+      // Corner Kite at vertex V[k]
+      const prevCut = cuts[(k + 4) % 5];
+      const thisCut = cuts[k];
+      const corner2D = insetPoly([V[k], prevCut.qRight, P[k], thisCut.qLeft], 0.94);
+      const corner3D = corner2D.map(p => to3D(p));
 
       const cornerGeom = new THREE.BufferGeometry();
       const cov = [
-        ...cBase.toArray(), ...cSideL.toArray(), ...cTip.toArray(),
-        ...cBase.toArray(), ...cTip.toArray(), ...cSideR.toArray()
+        ...corner3D[0].toArray(), ...corner3D[1].toArray(), ...corner3D[2].toArray(),
+        ...corner3D[0].toArray(), ...corner3D[2].toArray(), ...corner3D[3].toArray()
       ];
       cornerGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cov), 3));
       cornerGeom.computeVertexNormals();
@@ -294,6 +300,24 @@ export function buildMegaminxModel(options = {}) {
       cornerMesh.name = `sticker-${faceSpec.id}-corner-${k}`;
       cornerMesh.userData = { faceId: faceSpec.id, pieceType: 'corner', faceIndex: faceIdx, cornerIndex: k };
       faceGroup.add(cornerMesh);
+
+      // Edge Trapezoid along outer edge V[k] -> V[k+1]
+      const nextCut = cuts[(k + 1) % 5];
+      const edge2D = insetPoly([prevCut.qRight, nextCut.qLeft, P[(k + 1) % 5], P[k]], 0.94);
+      const edge3D = edge2D.map(p => to3D(p));
+
+      const edgeGeom = new THREE.BufferGeometry();
+      const ev = [
+        ...edge3D[0].toArray(), ...edge3D[1].toArray(), ...edge3D[2].toArray(),
+        ...edge3D[0].toArray(), ...edge3D[2].toArray(), ...edge3D[3].toArray()
+      ];
+      edgeGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(ev), 3));
+      edgeGeom.computeVertexNormals();
+
+      const edgeMesh = new THREE.Mesh(edgeGeom, stickerMat);
+      edgeMesh.name = `sticker-${faceSpec.id}-edge-${k}`;
+      edgeMesh.userData = { faceId: faceSpec.id, pieceType: 'edge', faceIndex: faceIdx, edgeIndex: k };
+      faceGroup.add(edgeMesh);
     }
 
     group.add(faceGroup);

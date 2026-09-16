@@ -328,6 +328,43 @@ const RubikViewer = forwardRef(function RubikViewer({
         }
       });
     },
+    animateSequence: (moves, customDuration = 100, onComplete = null) => {
+      moveQueueRef.current = [];
+      isAnimatingRef.current = false;
+      if (!activeModelRef.current || !puzzle) {
+        onComplete?.();
+        return;
+      }
+      const moveList = Array.isArray(moves) ? moves : (puzzle.parseAlgorithm ? puzzle.parseAlgorithm(moves || '') : []);
+      if (moveList.length === 0) {
+        onComplete?.();
+        return;
+      }
+
+      let idx = 0;
+      isAnimatingRef.current = true;
+
+      const step = () => {
+        if (idx >= moveList.length) {
+          isAnimatingRef.current = false;
+          onComplete?.();
+          return;
+        }
+        const m = moveList[idx++];
+        if (typeof puzzle.animateMove === 'function' && activeModelRef.current) {
+          try {
+            puzzle.animateMove(m, activeModelRef.current, step, customDuration, pivotRef.current);
+          } catch (err) {
+            console.warn(`[RubikViewer] Error executing sequence move '${m}':`, err);
+            step();
+          }
+        } else {
+          step();
+        }
+      };
+
+      step();
+    },
     getModel: () => activeModelRef.current
   }));
 

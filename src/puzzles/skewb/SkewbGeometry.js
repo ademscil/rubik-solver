@@ -3,10 +3,11 @@
  * 3D Geometry Generator for Skewb (Corner-Turning Cube)
  * 
  * Anatomy:
- * - 6 square faces covering the entire cube $[-L, L]^3$
- * - On each face: 1 center square/diamond + 4 corner triangles = 5 facets per face
- * - 6 faces * 5 facets = exactly 30 facets total
- * - Solid black plastic body beneath stickers with crisp, uniform borders
+ * - Exactly 14 solid pieces filling the cube [-L, L]^3:
+ *   - 6 Center pieces (each with a black plastic core and 1 colored diamond sticker)
+ *   - 8 Corner pieces (each with a black plastic core and 3 colored triangle stickers)
+ * - Total 30 outer sticker facets (6 centers + 24 corners)
+ * - Zero gaps, zero tearing, 100% solid physical pieces
  */
 
 import * as THREE from 'three';
@@ -27,11 +28,6 @@ const COLOR_HEX = {
 
 const PLASTIC_COLOR = 0x181820;
 
-/**
- * Build mathematically exact Skewb 3D model
- * @param {Object} [options]
- * @returns {THREE.Group}
- */
 export function buildSkewbModel(options = {}) {
   const group = new THREE.Group();
   group.name = 'skewb-model';
@@ -42,63 +38,71 @@ export function buildSkewbModel(options = {}) {
   };
 
   const L = options.size || 1.35; // Half-size of the cube
-  const normalOffset = 0.012;     // Elevation above black plastic body to prevent z-fighting
-  const insetFactor = 0.91;       // Inset stickers slightly for realistic black vinyl grooves
+  const normalOffset = 0.012;     // Elevation of stickers above plastic
+  const insetFactor = 0.94;       // Slight inset for vinyl groove
 
-  // 1. Build solid black plastic cube body
-  const bodyGeom = new THREE.BoxGeometry(L * 2, L * 2, L * 2);
-  const bodyMat = new THREE.MeshStandardMaterial({
+  const plasticMat = new THREE.MeshStandardMaterial({
     color: PLASTIC_COLOR,
     roughness: 0.85,
     metalness: 0.1
   });
-  const bodyMesh = new THREE.Mesh(bodyGeom, bodyMat);
-  bodyMesh.name = 'skewb-body';
-  group.add(bodyMesh);
 
-  // 2. Build 6 faces with 1 center diamond + 4 corner triangles per face
-  const faceConfigs = [
-    { id: 'U', normal: [0, 1, 0], up: [0, 0, -1], color: COLOR_HEX.U },
-    { id: 'D', normal: [0, -1, 0], up: [0, 0, 1], color: COLOR_HEX.D },
-    { id: 'F', normal: [0, 0, 1], up: [0, 1, 0], color: COLOR_HEX.F },
-    { id: 'B', normal: [0, 0, -1], up: [0, 1, 0], color: COLOR_HEX.B },
-    { id: 'R', normal: [1, 0, 0], up: [0, 1, 0], color: COLOR_HEX.R },
-    { id: 'L', normal: [-1, 0, 0], up: [0, 1, 0], color: COLOR_HEX.L }
+  const getStickerMat = (colorHex) => new THREE.MeshStandardMaterial({
+    color: colorHex,
+    roughness: 0.28,
+    metalness: 0.08,
+    side: THREE.DoubleSide
+  });
+
+  const origin = new THREE.Vector3(0, 0, 0);
+
+  // 1. Build 6 Center Pieces
+  const centerConfigs = [
+    { id: 'U', normal: [0, 1, 0], u: [0, 0, -1], color: COLOR_HEX.U },
+    { id: 'D', normal: [0, -1, 0], u: [0, 0, 1], color: COLOR_HEX.D },
+    { id: 'F', normal: [0, 0, 1], u: [0, 1, 0], color: COLOR_HEX.F },
+    { id: 'B', normal: [0, 0, -1], u: [0, 1, 0], color: COLOR_HEX.B },
+    { id: 'R', normal: [1, 0, 0], u: [0, 1, 0], color: COLOR_HEX.R },
+    { id: 'L', normal: [-1, 0, 0], u: [0, 1, 0], color: COLOR_HEX.L }
   ];
 
-  faceConfigs.forEach(face => {
-    const faceGroup = new THREE.Group();
-    faceGroup.name = `face-${face.id}`;
+  centerConfigs.forEach(cfg => {
+    const centerGroup = new THREE.Group();
+    centerGroup.name = `center-piece-${cfg.id}`;
+    centerGroup.userData = { type: 'center', faceId: cfg.id };
 
-    const n = new THREE.Vector3(...face.normal);
-    const u = new THREE.Vector3(...face.up);
+    const n = new THREE.Vector3(...cfg.normal);
+    const u = new THREE.Vector3(...cfg.u);
     const r = new THREE.Vector3().crossVectors(n, u).normalize();
-    if (face.id === 'B' || face.id === 'D') {
-      r.negate();
-    }
+    if (cfg.id === 'B' || cfg.id === 'D') r.negate();
 
     const faceCenter = n.clone().multiplyScalar(L);
-    const stickerMat = new THREE.MeshStandardMaterial({
-      color: face.color,
-      roughness: 0.28,
-      metalness: 0.08,
-      side: THREE.DoubleSide
-    });
 
-    // 4 Midpoints of the face edges (connect to form center diamond)
+    // 4 Midpoints of the face edges
     const M0 = faceCenter.clone().add(u.clone().multiplyScalar(L));
     const M1 = faceCenter.clone().add(r.clone().multiplyScalar(L));
     const M2 = faceCenter.clone().add(u.clone().multiplyScalar(-L));
     const M3 = faceCenter.clone().add(r.clone().multiplyScalar(-L));
 
-    // 4 Corners of the face
-    const C0 = faceCenter.clone().add(u.clone().multiplyScalar(L)).add(r.clone().multiplyScalar(L));
-    const C1 = faceCenter.clone().add(u.clone().multiplyScalar(-L)).add(r.clone().multiplyScalar(L));
-    const C2 = faceCenter.clone().add(u.clone().multiplyScalar(-L)).add(r.clone().multiplyScalar(-L));
-    const C3 = faceCenter.clone().add(u.clone().multiplyScalar(L)).add(r.clone().multiplyScalar(-L));
+    // Plastic pyramid: base M0, M1, M2, M3 connecting to origin
+    const pyrGeom = new THREE.BufferGeometry();
+    const pv = [
+      // Base (2 triangles)
+      ...M0.toArray(), ...M1.toArray(), ...M2.toArray(),
+      ...M0.toArray(), ...M2.toArray(), ...M3.toArray(),
+      // 4 sides to origin
+      ...origin.toArray(), ...M1.toArray(), ...M0.toArray(),
+      ...origin.toArray(), ...M2.toArray(), ...M1.toArray(),
+      ...origin.toArray(), ...M3.toArray(), ...M2.toArray(),
+      ...origin.toArray(), ...M0.toArray(), ...M3.toArray()
+    ];
+    pyrGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pv), 3));
+    pyrGeom.computeVertexNormals();
+    const pyrMesh = new THREE.Mesh(pyrGeom, plasticMat);
+    pyrMesh.name = `core-center-${cfg.id}`;
+    centerGroup.add(pyrMesh);
 
-    // 1. Center Diamond Sticker
-    const dCenter = faceCenter.clone().addScaledVector(n, normalOffset);
+    // Diamond Sticker
     const d0 = new THREE.Vector3().lerpVectors(faceCenter, M0, insetFactor).addScaledVector(n, normalOffset);
     const d1 = new THREE.Vector3().lerpVectors(faceCenter, M1, insetFactor).addScaledVector(n, normalOffset);
     const d2 = new THREE.Vector3().lerpVectors(faceCenter, M2, insetFactor).addScaledVector(n, normalOffset);
@@ -112,25 +116,71 @@ export function buildSkewbModel(options = {}) {
     diamondGeom.setAttribute('position', new THREE.BufferAttribute(dv, 3));
     diamondGeom.computeVertexNormals();
 
-    const centerMesh = new THREE.Mesh(diamondGeom, stickerMat);
-    centerMesh.name = `center-${face.id}`;
-    centerMesh.userData = { faceId: face.id, pieceType: 'center' };
-    faceGroup.add(centerMesh);
+    const centerMesh = new THREE.Mesh(diamondGeom, getStickerMat(cfg.color));
+    centerMesh.name = `center-${cfg.id}`;
+    centerMesh.userData = { faceId: cfg.id, pieceType: 'center' };
+    centerGroup.add(centerMesh);
 
-    // 2. 4 Corner Triangles
-    const cornerDefs = [
-      { corner: C0, e1: M0, e2: M1, idx: 0 }, // Top-Right
-      { corner: C1, e1: M1, e2: M2, idx: 1 }, // Bottom-Right
-      { corner: C2, e1: M2, e2: M3, idx: 2 }, // Bottom-Left
-      { corner: C3, e1: M3, e2: M0, idx: 3 }  // Top-Left
+    group.add(centerGroup);
+  });
+
+  // 2. Build 8 Corner Pieces
+  const cornerConfigs = [
+    { id: 'UFR', signs: [1, 1, 1],   faces: [{ face: 'U', n: [0, 1, 0], c: COLOR_HEX.U, idx: 0 }, { face: 'F', n: [0, 0, 1], c: COLOR_HEX.F, idx: 0 }, { face: 'R', n: [1, 0, 0], c: COLOR_HEX.R, idx: 0 }] },
+    { id: 'UFL', signs: [-1, 1, 1],  faces: [{ face: 'U', n: [0, 1, 0], c: COLOR_HEX.U, idx: 3 }, { face: 'F', n: [0, 0, 1], c: COLOR_HEX.F, idx: 3 }, { face: 'L', n: [-1, 0, 0], c: COLOR_HEX.L, idx: 1 }] },
+    { id: 'UBL', signs: [-1, 1, -1], faces: [{ face: 'U', n: [0, 1, 0], c: COLOR_HEX.U, idx: 2 }, { face: 'B', n: [0, 0, -1], c: COLOR_HEX.B, idx: 2 }, { face: 'L', n: [-1, 0, 0], c: COLOR_HEX.L, idx: 2 }] },
+    { id: 'UBR', signs: [1, 1, -1],  faces: [{ face: 'U', n: [0, 1, 0], c: COLOR_HEX.U, idx: 1 }, { face: 'B', n: [0, 0, -1], c: COLOR_HEX.B, idx: 1 }, { face: 'R', n: [1, 0, 0], c: COLOR_HEX.R, idx: 3 }] },
+    { id: 'DFR', signs: [1, -1, 1],  faces: [{ face: 'D', n: [0, -1, 0], c: COLOR_HEX.D, idx: 0 }, { face: 'F', n: [0, 0, 1], c: COLOR_HEX.F, idx: 1 }, { face: 'R', n: [1, 0, 0], c: COLOR_HEX.R, idx: 1 }] },
+    { id: 'DFL', signs: [-1, -1, 1], faces: [{ face: 'D', n: [0, -1, 0], c: COLOR_HEX.D, idx: 3 }, { face: 'F', n: [0, 0, 1], c: COLOR_HEX.F, idx: 2 }, { face: 'L', n: [-1, 0, 0], c: COLOR_HEX.L, idx: 0 }] },
+    { id: 'DBL', signs: [-1, -1, -1],faces: [{ face: 'D', n: [0, -1, 0], c: COLOR_HEX.D, idx: 2 }, { face: 'B', n: [0, 0, -1], c: COLOR_HEX.B, idx: 3 }, { face: 'L', n: [-1, 0, 0], c: COLOR_HEX.L, idx: 3 }] },
+    { id: 'DBR', signs: [1, -1, -1], faces: [{ face: 'D', n: [0, -1, 0], c: COLOR_HEX.D, idx: 1 }, { face: 'B', n: [0, 0, -1], c: COLOR_HEX.B, idx: 0 }, { face: 'R', n: [1, 0, 0], c: COLOR_HEX.R, idx: 2 }] }
+  ];
+
+  cornerConfigs.forEach(cfg => {
+    const cornerGroup = new THREE.Group();
+    cornerGroup.name = `corner-piece-${cfg.id}`;
+    cornerGroup.userData = { type: 'corner', cornerId: cfg.id };
+
+    const [sx, sy, sz] = cfg.signs;
+    const C = new THREE.Vector3(sx * L, sy * L, sz * L);
+    const Mx = new THREE.Vector3(0, sy * L, sz * L);
+    const My = new THREE.Vector3(sx * L, 0, sz * L);
+    const Mz = new THREE.Vector3(sx * L, sy * L, 0);
+
+    // Plastic core connecting C, Mx, My, Mz to origin
+    const coreGeom = new THREE.BufferGeometry();
+    const cv = [
+      // 3 Outer faces
+      ...C.toArray(), ...Mx.toArray(), ...Mz.toArray(),
+      ...C.toArray(), ...My.toArray(), ...Mx.toArray(),
+      ...C.toArray(), ...Mz.toArray(), ...My.toArray(),
+      // 3 Inner cut faces to origin
+      ...origin.toArray(), ...Mz.toArray(), ...Mx.toArray(),
+      ...origin.toArray(), ...Mx.toArray(), ...My.toArray(),
+      ...origin.toArray(), ...My.toArray(), ...Mz.toArray()
     ];
+    coreGeom.setAttribute('position', new THREE.BufferAttribute(new Float32Array(cv), 3));
+    coreGeom.computeVertexNormals();
+    const coreMesh = new THREE.Mesh(coreGeom, plasticMat);
+    coreMesh.name = `core-corner-${cfg.id}`;
+    cornerGroup.add(coreMesh);
 
-    cornerDefs.forEach(({ corner, e1, e2, idx }) => {
-      const triCenter = new THREE.Vector3().add(corner).add(e1).add(e2).divideScalar(3);
+    // 3 Colored Corner Stickers
+    cfg.faces.forEach(f => {
+      const fn = new THREE.Vector3(...f.n);
+      let v1, v2;
+      if (Math.abs(fn.y) > 0.5) {
+        v1 = Mx; v2 = Mz;
+      } else if (Math.abs(fn.z) > 0.5) {
+        v1 = My; v2 = Mx;
+      } else {
+        v1 = Mz; v2 = My;
+      }
 
-      const t0 = new THREE.Vector3().lerpVectors(triCenter, corner, insetFactor).addScaledVector(n, normalOffset);
-      const t1 = new THREE.Vector3().lerpVectors(triCenter, e1, insetFactor).addScaledVector(n, normalOffset);
-      const t2 = new THREE.Vector3().lerpVectors(triCenter, e2, insetFactor).addScaledVector(n, normalOffset);
+      const triCenter = new THREE.Vector3().add(C).add(v1).add(v2).divideScalar(3);
+      const t0 = new THREE.Vector3().lerpVectors(triCenter, C, insetFactor).addScaledVector(fn, normalOffset);
+      const t1 = new THREE.Vector3().lerpVectors(triCenter, v1, insetFactor).addScaledVector(fn, normalOffset);
+      const t2 = new THREE.Vector3().lerpVectors(triCenter, v2, insetFactor).addScaledVector(fn, normalOffset);
 
       const triGeom = new THREE.BufferGeometry();
       const tv = new Float32Array([
@@ -141,13 +191,13 @@ export function buildSkewbModel(options = {}) {
       triGeom.setAttribute('position', new THREE.BufferAttribute(tv, 3));
       triGeom.computeVertexNormals();
 
-      const triMesh = new THREE.Mesh(triGeom, stickerMat);
-      triMesh.name = `corner-${face.id}-${idx}`;
-      triMesh.userData = { faceId: face.id, pieceType: 'corner', cornerIndex: idx };
-      faceGroup.add(triMesh);
+      const triMesh = new THREE.Mesh(triGeom, getStickerMat(f.c));
+      triMesh.name = `corner-${f.face}-${f.idx}`;
+      triMesh.userData = { faceId: f.face, pieceType: 'corner', cornerIndex: f.idx };
+      cornerGroup.add(triMesh);
     });
 
-    group.add(faceGroup);
+    group.add(cornerGroup);
   });
 
   group.updateMatrixWorld(true);

@@ -7,13 +7,52 @@
  */
 
 import { generatePedagogicalLBLSolution } from './lbl3x3Solver.js';
+import { generatePedagogical5x5Solution } from './reduction5x5Solver.js';
 
-export { generatePedagogicalLBLSolution };
+export { generatePedagogicalLBLSolution, generatePedagogical5x5Solution };
 
 /**
  * Universal stage templates for all puzzle types
  */
 const PUZZLE_STAGE_TEMPLATES = {
+  'cube-5x5': [
+    {
+      id: 'stage-1',
+      title: 'Tahap 1: Membuat 6 Pusat Sisi 3x3 (Centers)',
+      shortTitle: 'Pusat 3x3',
+      badge: '6 Center 3x3',
+      formulaName: "Rw U Rw' / 2Rw U 2Rw'",
+      description: 'Menyusun pusat putih & kuning, lalu menuntaskan 4 pusat samping dengan komutator baris.',
+      tips: 'Bentuk baris 1x3 terlebih dahulu, lalu satukan 3 baris menjadi center 3x3.'
+    },
+    {
+      id: 'stage-2',
+      title: 'Tahap 2: Memasangkan 12 Rusuk (Edge Pairing / 12 Tredges)',
+      shortTitle: '12 Tredges',
+      badge: '12 Tredges',
+      formulaName: "Uw' (R U R' F R' F' R) Uw",
+      description: 'Menggabungkan 1 rusuk tengah dan 2 rusuk sayap untuk setiap 12 sisi menjadi rusuk utuh.',
+      tips: 'Gunakan teknik Slice-Flip-Slice tanpa merusak center yang telah jadi.'
+    },
+    {
+      id: 'stage-3',
+      title: 'Tahap 3: Menyelesaikan Seperti Rubik 3x3',
+      shortTitle: 'Metode 3x3',
+      badge: 'Reduksi 3x3',
+      formulaName: 'Cross + F2L + OLL',
+      description: 'Selesaikan kubus seperti 3x3 biasa dari palang bawah hingga orientasi kuning.',
+      tips: 'Anggap setiap blok 3x3 sebagai center dan setiap tredge sebagai edge biasa.'
+    },
+    {
+      id: 'stage-4',
+      title: 'Tahap 4: Paritas Sayap & Selesai (PLL)',
+      shortTitle: 'Paritas/Selesai',
+      badge: 'Paritas Sayap',
+      formulaName: 'Rw U2 Rw U2 ... (Parity)',
+      description: 'Membalikkan sayap rusuk terakhir jika terbalik arah, lalu kunci dengan PLL akhir.',
+      tips: 'Eksekusi rumus paritas sayap 5x5 untuk menuntaskan penyelesaian.'
+    }
+  ],
   'cube-3x3': [
     {
       id: 'stage-1',
@@ -291,3 +330,4 @@ export function partitionMovesIntoStages(puzzleId, solutionMoves = []) {
 
   return stages;
 }
+
