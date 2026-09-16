@@ -185,8 +185,11 @@ const RubikViewer = forwardRef(function RubikViewer({
   // Animate Move Execution
   const executeMove = useCallback((moveStr, onComplete) => {
     if (!moveStr || !activeModelRef.current || !puzzle) {
-      if (onComplete) onComplete(moveStr);
-      if (onMoveComplete) onMoveComplete(moveStr);
+      if (onComplete) {
+        onComplete(moveStr);
+      } else if (onMoveComplete) {
+        onMoveComplete(moveStr);
+      }
       return;
     }
 
@@ -200,8 +203,11 @@ const RubikViewer = forwardRef(function RubikViewer({
 
     const handleDone = () => {
       isAnimatingRef.current = false;
-      if (onComplete) onComplete(moveStr);
-      if (onMoveComplete) onMoveComplete(moveStr);
+      if (onComplete) {
+        onComplete(moveStr);
+      } else if (onMoveComplete) {
+        onMoveComplete(moveStr);
+      }
 
       // Process next queued move if any
       if (moveQueueRef.current.length > 0) {
@@ -216,8 +222,11 @@ const RubikViewer = forwardRef(function RubikViewer({
       } catch (err) {
         console.warn(`[RubikViewer] Error executing move '${moveStr}':`, err);
         isAnimatingRef.current = false;
-        if (onComplete) onComplete(moveStr);
-        if (onMoveComplete) onMoveComplete(moveStr);
+        if (onComplete) {
+          onComplete(moveStr);
+        } else if (onMoveComplete) {
+          onMoveComplete(moveStr);
+        }
         if (moveQueueRef.current.length > 0) {
           const next = moveQueueRef.current.shift();
           executeMoveRef.current?.(next.moveStr, next.onComplete);
@@ -247,27 +256,30 @@ const RubikViewer = forwardRef(function RubikViewer({
           const gy = Math.round(pos.y);
           const gz = Math.round(pos.z);
 
-          if (highlightMode === 'centers') {
-            const isCenter =
-              (Math.abs(gx) === half && Math.abs(gy) < half && Math.abs(gz) < half) ||
-              (Math.abs(gy) === half && Math.abs(gx) < half && Math.abs(gz) < half) ||
-              (Math.abs(gz) === half && Math.abs(gx) < half && Math.abs(gy) < half);
-            shouldHighlight = isCenter;
-          } else if (highlightMode === 'edges') {
-            const countHalf = [Math.abs(gx) === half, Math.abs(gy) === half, Math.abs(gz) === half].filter(Boolean).length;
-            shouldHighlight = countHalf === 2;
-          } else if (highlightMode === 'parity') {
-            shouldHighlight = (gy === half && gz === half) || (gy === half && gz === -half);
-          }
+          const isCenter = (Math.abs(gx) < half && Math.abs(gy) < half) ||
+                           (Math.abs(gx) < half && Math.abs(gz) < half) ||
+                           (Math.abs(gy) < half && Math.abs(gz) < half);
+          const isEdge = !isCenter && (
+            (Math.abs(gx) === half && Math.abs(gy) === half && Math.abs(gz) < half) ||
+            (Math.abs(gx) === half && Math.abs(gz) === half && Math.abs(gy) < half) ||
+            (Math.abs(gy) === half && Math.abs(gz) === half && Math.abs(gx) < half)
+          );
+          const isCorner = Math.abs(gx) === half && Math.abs(gy) === half && Math.abs(gz) === half;
+
+          if (highlightMode === 'centers') shouldHighlight = isCenter;
+          else if (highlightMode === 'edges') shouldHighlight = isEdge;
+          else if (highlightMode === 'parity') shouldHighlight = isEdge || isCorner;
         }
 
-        const materials = Array.isArray(child.material) ? child.material : [child.material];
-        materials.forEach((mat) => {
-          if (mat && typeof mat === 'object') {
-            mat.opacity = shouldHighlight ? 1.0 : 0.28;
-            mat.transparent = !shouldHighlight;
-          }
-        });
+        if (child.material) {
+          const mat = Array.isArray(child.material) ? child.material : [child.material];
+          mat.forEach(m => {
+            if (m.opacity !== undefined) {
+              m.transparent = !shouldHighlight;
+              m.opacity = shouldHighlight ? 1.0 : 0.25;
+            }
+          });
+        }
       }
     });
   }, [highlightMode, puzzle]);
@@ -300,6 +312,21 @@ const RubikViewer = forwardRef(function RubikViewer({
       if (puzzle?.order && activeModelRef.current) {
         applyNetStateToNxN(activeModelRef.current, facesData, puzzle.order);
       }
+    },
+    applyMovesInstant: (moves) => {
+      moveQueueRef.current = [];
+      isAnimatingRef.current = false;
+      if (!activeModelRef.current || !puzzle) return;
+      const moveList = Array.isArray(moves) ? moves : (puzzle.parseAlgorithm ? puzzle.parseAlgorithm(moves || '') : []);
+      moveList.forEach(m => {
+        if (typeof puzzle.animateMove === 'function') {
+          try {
+            puzzle.animateMove(m, activeModelRef.current, null, 0, pivotRef.current);
+          } catch (err) {
+            console.warn(`[RubikViewer] Error executing instant move '${m}':`, err);
+          }
+        }
+      });
     },
     getModel: () => activeModelRef.current
   }));

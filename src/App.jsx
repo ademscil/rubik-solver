@@ -21,6 +21,9 @@ export default function App() {
 
   // Scramble / Auto-Solver State
   const [isScrambled, setIsScrambled] = useState(false);
+  const [scrambleHistory, setScrambleHistory] = useState([]);
+  const scrambleHistoryRef = useRef([]);
+  scrambleHistoryRef.current = scrambleHistory;
 
   // Viewport / Inspection States
   const [isInspectMode, setIsInspectMode] = useState(true);
@@ -55,8 +58,13 @@ export default function App() {
   const handleSelectPuzzle = useCallback(async (puzzleId) => {
     setIsPuzzleSelectorOpen(false);
     setIsPlaying(false);
+    isPlayingRef.current = false;
+    setIsScrambled(false);
+    setScrambleHistory([]);
+    scrambleHistoryRef.current = [];
     setActiveMoves([]);
     setCurrentMoveIndex(0);
+    currentMoveIndexRef.current = 0;
     setActiveCaseId(null);
     setActiveStageIndex(0);
 
@@ -89,22 +97,28 @@ export default function App() {
       const nextIdx = currentMoveIndexRef.current + 1;
       const total = activeMovesRef.current.length;
 
+      currentMoveIndexRef.current = nextIdx;
+      setCurrentMoveIndex(nextIdx);
+
       if (nextIdx < total) {
-        setCurrentMoveIndex(nextIdx);
         // Play next move in sequence
         const nextMove = activeMovesRef.current[nextIdx];
         if (cubeRef.current && nextMove) {
           cubeRef.current.makeMove(nextMove, handleMoveComplete);
         }
       } else {
-        // Algorithm completed
+        // Algorithm / Solution fully completed!
+        currentMoveIndexRef.current = total;
         setCurrentMoveIndex(total);
         setIsPlaying(false);
+        isPlayingRef.current = false;
         setIsScrambled(false);
+        setScrambleHistory([]);
+        scrambleHistoryRef.current = [];
         try {
           confetti({
-            particleCount: 75,
-            spread: 60,
+            particleCount: 85,
+            spread: 65,
             origin: { y: 0.7 }
           });
         } catch (e) {
@@ -120,13 +134,20 @@ export default function App() {
 
     if (isPlaying) {
       setIsPlaying(false);
+      isPlayingRef.current = false;
     } else {
       let startIdx = currentMoveIndex;
       if (startIdx >= activeMoves.length) {
+        if (cubeRef.current && scrambleHistoryRef.current.length > 0) {
+          cubeRef.current.resetCube();
+          cubeRef.current.applyMovesInstant(scrambleHistoryRef.current);
+        }
         startIdx = 0;
         setCurrentMoveIndex(0);
+        currentMoveIndexRef.current = 0;
       }
       setIsPlaying(true);
+      isPlayingRef.current = true;
 
       const move = activeMoves[startIdx];
       if (cubeRef.current && move) {
@@ -144,10 +165,14 @@ export default function App() {
     if (cubeRef.current && move) {
       cubeRef.current.makeMove(move, () => {
         const nextIdx = currentMoveIndex + 1;
+        currentMoveIndexRef.current = nextIdx;
         setCurrentMoveIndex(nextIdx);
         if (nextIdx === activeMoves.length) {
+          setIsScrambled(false);
+          setScrambleHistory([]);
+          scrambleHistoryRef.current = [];
           try {
-            confetti({ particleCount: 50, spread: 50, origin: { y: 0.8 } });
+            confetti({ particleCount: 60, spread: 55, origin: { y: 0.75 } });
           } catch (e) {}
         }
       });
@@ -164,7 +189,10 @@ export default function App() {
     const inverse = inverseFn(prevMove);
     if (cubeRef.current && inverse) {
       cubeRef.current.makeMove(inverse, () => {
-        setCurrentMoveIndex(currentMoveIndex - 1);
+        const prevIdx = currentMoveIndex - 1;
+        currentMoveIndexRef.current = prevIdx;
+        setCurrentMoveIndex(prevIdx);
+        setIsScrambled(true);
       });
     }
   }, [currentMoveIndex, activeMoves, currentPuzzle]);
@@ -172,21 +200,56 @@ export default function App() {
   // Reset timeline playback
   const handleResetTimeline = useCallback(() => {
     setIsPlaying(false);
+    isPlayingRef.current = false;
     setCurrentMoveIndex(0);
+    currentMoveIndexRef.current = 0;
     if (cubeRef.current) {
       cubeRef.current.resetCube();
+      if (scrambleHistoryRef.current.length > 0) {
+        cubeRef.current.applyMovesInstant(scrambleHistoryRef.current);
+      }
     }
   }, []);
+
+  // Jump to specific step in timeline
+  const handleSelectMoveIndex = useCallback((targetIdx) => {
+    if (cubeRef.current?.isBusy() || isPlaying) return;
+    if (targetIdx < 0 || targetIdx > activeMoves.length) return;
+
+    if (scrambleHistoryRef.current.length > 0 && cubeRef.current) {
+      cubeRef.current.resetCube();
+      cubeRef.current.applyMovesInstant(scrambleHistoryRef.current);
+      const movesToApply = activeMoves.slice(0, targetIdx);
+      if (movesToApply.length > 0) {
+        cubeRef.current.applyMovesInstant(movesToApply);
+      }
+      setCurrentMoveIndex(targetIdx);
+      currentMoveIndexRef.current = targetIdx;
+      if (targetIdx === activeMoves.length) {
+        setIsScrambled(false);
+      } else {
+        setIsScrambled(true);
+      }
+    } else {
+      setCurrentMoveIndex(targetIdx);
+      currentMoveIndexRef.current = targetIdx;
+    }
+  }, [isPlaying, activeMoves]);
 
   // Apply algorithm from GuideSidebar
   const handleApplyAlgorithm = useCallback((caseItem) => {
     setIsPlaying(false);
+    isPlayingRef.current = false;
+    setIsScrambled(false);
+    setScrambleHistory([]);
+    scrambleHistoryRef.current = [];
     setActiveCaseId(caseItem.id);
 
     const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
     const moves = parseFn(caseItem.algorithm || caseItem.moves || '');
     setActiveMoves(moves);
     setCurrentMoveIndex(0);
+    currentMoveIndexRef.current = 0;
 
     if (cubeRef.current) {
       cubeRef.current.resetCube();
@@ -206,6 +269,10 @@ export default function App() {
   // Apply preset case
   const handleApplyPreset = useCallback((preset) => {
     setIsPlaying(false);
+    isPlayingRef.current = false;
+    setIsScrambled(false);
+    setScrambleHistory([]);
+    scrambleHistoryRef.current = [];
     if (cubeRef.current) {
       cubeRef.current.resetCube();
     }
@@ -216,9 +283,11 @@ export default function App() {
       const moves = parseFn(solutionAlg);
       setActiveMoves(moves);
       setCurrentMoveIndex(0);
+      currentMoveIndexRef.current = 0;
     } else {
       setActiveMoves([]);
       setCurrentMoveIndex(0);
+      currentMoveIndexRef.current = 0;
     }
 
     if (preset.setupMoves && cubeRef.current) {
@@ -237,6 +306,7 @@ export default function App() {
   // Scramble puzzle with automatic step-by-step solution preparation
   const handleScramble = useCallback(() => {
     setIsPlaying(false);
+    isPlayingRef.current = false;
     if (cubeRef.current) {
       cubeRef.current.resetCube();
       const scrambleFn = currentPuzzle?.generateScramble || defaultScramble;
@@ -250,20 +320,23 @@ export default function App() {
       // Compute step-by-step resolution algorithm (inverse sequence)
       const solutionMoves = [...scrambleMoves].reverse().map(m => getInverseFn(m));
 
-      // Apply scramble sequence to 3D cube model
-      scrambleMoves.forEach(m => cubeRef.current.makeMove(m));
+      // Instantly apply scramble sequence to 3D model (zero queue, no animation lag)
+      cubeRef.current.applyMovesInstant(scrambleMoves);
 
       // Populate solution into timeline for instant step-by-step solver readiness
+      setScrambleHistory(scrambleMoves);
+      scrambleHistoryRef.current = scrambleMoves;
       setIsScrambled(true);
       setActiveMoves(solutionMoves);
       setCurrentMoveIndex(0);
+      currentMoveIndexRef.current = 0;
       setActiveCaseId('auto-solve-step-by-step');
     }
   }, [currentPuzzle]);
 
   // Step-by-Step Solver: Plays or steps through resolution
   const handleSolveStepByStep = useCallback(() => {
-    if (activeMoves.length === 0) {
+    if (!isScrambled && activeMoves.length === 0) {
       handleScramble();
       return;
     }
@@ -271,25 +344,36 @@ export default function App() {
     if (!isPlaying) {
       let startIdx = currentMoveIndex;
       if (startIdx >= activeMoves.length) {
+        if (cubeRef.current && scrambleHistoryRef.current.length > 0) {
+          cubeRef.current.resetCube();
+          cubeRef.current.applyMovesInstant(scrambleHistoryRef.current);
+        }
         startIdx = 0;
         setCurrentMoveIndex(0);
+        currentMoveIndexRef.current = 0;
       }
       setIsPlaying(true);
+      isPlayingRef.current = true;
       const move = activeMoves[startIdx];
       if (cubeRef.current && move) {
         cubeRef.current.makeMove(move, handleMoveComplete);
       }
     } else {
       setIsPlaying(false);
+      isPlayingRef.current = false;
     }
-  }, [activeMoves, currentMoveIndex, isPlaying, handleMoveComplete, handleScramble]);
+  }, [activeMoves, currentMoveIndex, isPlaying, isScrambled, handleMoveComplete, handleScramble]);
 
   // Reset puzzle to solved state
   const handleResetCube = useCallback(() => {
     setIsPlaying(false);
+    isPlayingRef.current = false;
     setIsScrambled(false);
+    setScrambleHistory([]);
+    scrambleHistoryRef.current = [];
     setActiveMoves([]);
     setCurrentMoveIndex(0);
+    currentMoveIndexRef.current = 0;
     setActiveCaseId(null);
     setHighlightMode('all');
     if (cubeRef.current) {
@@ -298,12 +382,28 @@ export default function App() {
     }
   }, []);
 
-  // Quick manual move
+  // Quick manual move - automatically tracks move into scramble history and updates solution
   const handleQuickMove = useCallback((moveStr) => {
-    if (cubeRef.current) {
-      cubeRef.current.makeMove(moveStr);
-    }
-  }, []);
+    if (!cubeRef.current || !moveStr) return;
+    setIsPlaying(false);
+    isPlayingRef.current = false;
+
+    cubeRef.current.makeMove(moveStr, () => {
+      const getInverseFn = currentPuzzle?.getInverseMove || defaultGetInverse;
+      setScrambleHistory((prev) => {
+        const next = [...prev, moveStr];
+        scrambleHistoryRef.current = next;
+        // Compute solution as inverse sequence of all moves performed
+        const solutionMoves = [...next].reverse().map((m) => getInverseFn(m));
+        setActiveMoves(solutionMoves);
+        setCurrentMoveIndex(0);
+        currentMoveIndexRef.current = 0;
+        setIsScrambled(true);
+        setActiveCaseId('manual-scramble-step-by-step');
+        return next;
+      });
+    });
+  }, [currentPuzzle]);
 
   return (
     <div className="flex flex-col h-screen w-screen bg-slate-950 text-slate-100 overflow-hidden font-sans">
@@ -361,7 +461,6 @@ export default function App() {
             isInspectMode={isInspectMode}
             animationSpeed={speed}
             highlightMode={highlightMode}
-            onMoveComplete={handleMoveComplete}
           />
 
           {/* Bottom Playback Timeline */}
@@ -376,7 +475,7 @@ export default function App() {
             onStepPrev={handleStepPrev}
             onReset={handleResetTimeline}
             onSpeedChange={setSpeed}
-            onSelectMoveIndex={(idx) => setCurrentMoveIndex(idx)}
+            onSelectMoveIndex={handleSelectMoveIndex}
           />
         </main>
 
