@@ -62,7 +62,7 @@ export function extract3x3StickerState(modelGroup) {
         const match = mat?.userData?.cacheKey?.match(/#[0-9A-Fa-f]{6}/);
         hex = match ? match[0].toUpperCase() : null;
       }
-      if (!hex || hex === '#121215') continue; // Skip unstickered core body
+      if (!hex || hex === '#121215' || hex === '#181820' || hex === '#18181B' || hex === '#000000' || mat?.userData?.isCore) continue; // Skip unstickered core body
 
       const worldNorm = localNormals[faceIdx].clone().applyQuaternion(child.quaternion);
 

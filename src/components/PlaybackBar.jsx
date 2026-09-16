@@ -23,7 +23,7 @@ export default function PlaybackBar({
       try {
         const info = puzzle.getMoveInfo(token);
         if (info) return info;
-      } catch (err) {
+      } catch {
         // fallback
       }
     }
@@ -186,6 +186,9 @@ export default function PlaybackBar({
             <FastForward className="w-3 h-3 text-sky-400 shrink-0" />
             <span className="text-[10px] text-slate-400 hidden md:inline">Speed:</span>
             <select
+              id="playback-speed"
+              name="playback-speed"
+              aria-label="Kecepatan putaran"
               value={speed}
               onChange={(e) => onSpeedChange(parseFloat(e.target.value))}
               className="bg-transparent text-xs font-semibold text-sky-400 focus:outline-none cursor-pointer"

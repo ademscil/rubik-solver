@@ -8,7 +8,7 @@
  * - Part 3: Permutasi Lapisan & Sudut Akhir (PLL / Selesai)
  */
 
-import { parseAlgorithm, getInverseMove } from '../cube/rubikNotation.js';
+import { getInverseMove } from '../cube/rubikNotation.js';
 
 export function generatePedagogical2x2Solution() {
   // Part 1: Lapisan Putih Pertama (Menyelesaikan 4 sudut putih dengan samping selaras)

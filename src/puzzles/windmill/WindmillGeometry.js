@@ -317,7 +317,7 @@ function createWindmillMaterial(hex, isCore = false) {
  * @param {Object} [options]
  * @returns {THREE.Group}
  */
-export function buildWindmillModel(options = {}) {
+export function buildWindmillModel(_options = {}) {
   const group = new THREE.Group();
   group.name = 'windmill-model';
   group.userData = {

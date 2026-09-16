@@ -13,8 +13,6 @@
 
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
-import * as THREE from 'three';
-
 // Skewb imports
 import {
   parseSkewbMove,
@@ -22,7 +20,6 @@ import {
   getInverseMove as getInverseSkewbMove,
   generateScramble as generateSkewbScramble,
   animateSkewbMove,
-  SKEWB_NOTATION,
   getMoveInfo as getSkewbMoveInfo
 } from '../../src/puzzles/skewb/SkewbKinematics.js';
 import { buildSkewbModel } from '../../src/puzzles/skewb/SkewbGeometry.js';
@@ -34,7 +31,6 @@ import {
   getInverseMove as getInverseMegaminxMove,
   generateScramble as generateMegaminxScramble,
   animateMegaminxMove,
-  MEGAMINX_NOTATION,
   getMoveInfo as getMegaminxMoveInfo
 } from '../../src/puzzles/megaminx/MegaminxKinematics.js';
 import { buildMegaminxModel } from '../../src/puzzles/megaminx/MegaminxGeometry.js';
@@ -46,7 +42,6 @@ import {
   getInverseMove as getInverseSquare1Move,
   generateScramble as generateSquare1Scramble,
   animateSquare1Move,
-  SQUARE1_NOTATION,
   getMoveInfo as getSquare1MoveInfo
 } from '../../src/puzzles/square1/Square1Kinematics.js';
 import { buildSquare1Model } from '../../src/puzzles/square1/Square1Geometry.js';

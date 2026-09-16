@@ -17,21 +17,16 @@ import assert from 'node:assert/strict';
 import * as THREE from 'three';
 
 import {
-  buildNxNModel,
-  getLayerOffset,
-  getLayerIndexFromPos,
-  CUBIE_PITCH
+  buildNxNModel
 } from '../../src/puzzles/nxn/NxNGeometry.js';
 
 import {
   parseNxNMove,
-  getActiveCubies,
   animateNxNMove
 } from '../../src/puzzles/nxn/NxNKinematics.js';
 
 import {
-  getInverseMove,
-  invertAlgorithm
+  getInverseMove
 } from '../../src/solvers/notation/nxnNotation.js';
 
 /**

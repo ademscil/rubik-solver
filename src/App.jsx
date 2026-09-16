@@ -11,15 +11,11 @@ import PuzzleSelector from './components/PuzzleSelector';
 import { puzzleRegistry } from './puzzles/registry.js';
 import { parseAlgorithm as defaultParseAlg, getInverseMove as defaultGetInverse } from './cube/rubikNotation.js';
 import { generateScramble as defaultScramble } from './cube/presets.js';
-import {
-  getPedagogicalSolutionForPuzzle,
-  partitionMovesIntoStages,
-  generatePedagogical5x5Solution
-} from './solvers/solverStages.js';
+import { getPedagogicalSolutionForPuzzle } from './solvers/solverStages.js';
 import { getActiveStageInfo } from './solvers/lbl3x3Solver.js';
 import { solve3x3FromModel } from './solvers/cube3x3StateSolver.js';
 import { solve2x2FromModel } from './solvers/cube2x2StateSolver.js';
-import { simplifyMoves } from './solvers/moveSimplifier.js';
+import { analyze5x5ReductionState } from './solvers/reduction5x5Analyzer.js';
 
 export default function App() {
   const cubeRef = useRef(null);
@@ -33,7 +29,6 @@ export default function App() {
   const [isScrambling, setIsScrambling] = useState(false);
   const [scrambleHistory, setScrambleHistory] = useState([]);
   const scrambleHistoryRef = useRef([]);
-  scrambleHistoryRef.current = scrambleHistory;
 
   // Viewport / Inspection States
   const [isInspectMode, setIsInspectMode] = useState(true);
@@ -57,13 +52,25 @@ export default function App() {
 
   // Refs for async animation loop synchronization
   const isPlayingRef = useRef(isPlaying);
-  isPlayingRef.current = isPlaying;
-
   const currentMoveIndexRef = useRef(currentMoveIndex);
-  currentMoveIndexRef.current = currentMoveIndex;
-
   const activeMovesRef = useRef(activeMoves);
-  activeMovesRef.current = activeMoves;
+
+  // Synchronize refs with state outside render phase
+  useEffect(() => {
+    scrambleHistoryRef.current = scrambleHistory;
+  }, [scrambleHistory]);
+
+  useEffect(() => {
+    isPlayingRef.current = isPlaying;
+  }, [isPlaying]);
+
+  useEffect(() => {
+    currentMoveIndexRef.current = currentMoveIndex;
+  }, [currentMoveIndex]);
+
+  useEffect(() => {
+    activeMovesRef.current = activeMoves;
+  }, [activeMoves]);
 
   // Handle switching to a different puzzle seamlessly without page reload
   const handleSelectPuzzle = useCallback(async (puzzleId) => {
@@ -98,13 +105,33 @@ export default function App() {
     }
   }, []);
 
-  // Initial load: load default 3x3 Rubik's Cube
+  // Initial load: load default 3x3 Rubik's Cube asynchronously
   useEffect(() => {
-    handleSelectPuzzle('cube-3x3');
-  }, [handleSelectPuzzle]);
+    let ignore = false;
+    async function initDefaultPuzzle() {
+      try {
+        const def = await puzzleRegistry.load('cube-3x3');
+        if (ignore) return;
+        setCurrentPuzzle(def);
+        if (def.guideStages && def.guideStages.length > 0 && def.guideStages[0].cases && def.guideStages[0].cases[0]) {
+          const firstCase = def.guideStages[0].cases[0];
+          setActiveCaseId(firstCase.id);
+          const parseFn = def.parseAlgorithm || defaultParseAlg;
+          const moves = parseFn(firstCase.algorithm || firstCase.moves || '');
+          setActiveMoves(moves);
+        }
+      } catch (err) {
+        console.error('Failed to load default puzzle:', err);
+      }
+    }
+    initDefaultPuzzle();
+    return () => {
+      ignore = true;
+    };
+  }, []);
 
   // Callback triggered when Three.js animation finishes 1 move
-  const handleMoveComplete = useCallback((finishedMove) => {
+  const handleMoveComplete = useCallback(function onMoveDone(_finishedMove) {
     if (isPlayingRef.current) {
       const nextIdx = currentMoveIndexRef.current + 1;
       const total = activeMovesRef.current.length;
@@ -116,7 +143,7 @@ export default function App() {
         // Play next move in sequence
         const nextMove = activeMovesRef.current[nextIdx];
         if (cubeRef.current && nextMove) {
-          cubeRef.current.makeMove(nextMove, handleMoveComplete);
+          cubeRef.current.makeMove(nextMove, onMoveDone);
         }
       } else {
         // Algorithm / Solution fully completed!
@@ -128,8 +155,10 @@ export default function App() {
         setScrambleHistory([]);
         scrambleHistoryRef.current = [];
         setHighlightMode('all');
-        if (cubeRef.current) {
-          cubeRef.current.resetCube();
+        if (activeCaseId !== 'custom-layout-reduction') {
+          if (cubeRef.current) {
+            cubeRef.current.resetCube();
+          }
         }
         if (total > 0 && currentMoveIndexRef.current === total) {
           try {
@@ -138,13 +167,13 @@ export default function App() {
               spread: 65,
               origin: { y: 0.7 }
             });
-          } catch (e) {
+          } catch {
             // ignore
           }
         }
       }
     }
-  }, []);
+  }, [activeCaseId]);
 
   // Toggle Play / Pause
   const handlePlayToggle = useCallback(() => {
@@ -190,16 +219,18 @@ export default function App() {
           setScrambleHistory([]);
           scrambleHistoryRef.current = [];
           setHighlightMode('all');
-          if (cubeRef.current) {
-            cubeRef.current.resetCube();
+          if (activeCaseId !== 'custom-layout-reduction') {
+            if (cubeRef.current) {
+              cubeRef.current.resetCube();
+            }
           }
           try {
             confetti({ particleCount: 60, spread: 55, origin: { y: 0.75 } });
-          } catch (e) {}
+          } catch {}
         }
       });
     }
-  }, [currentMoveIndex, activeMoves]);
+  }, [currentMoveIndex, activeMoves, activeCaseId]);
 
   // Step Prev (1 move backward using inverse)
   const handleStepPrev = useCallback(() => {
@@ -798,14 +829,31 @@ export default function App() {
               }
             }
 
-            // 3. For 5x5 and all other puzzles: generate authentic pedagogical reduction solution
+            // 3. For 5x5: intelligent reduction state analysis & stage navigation
+            if (currentPuzzleId === 'cube-5x5') {
+              const reduction = analyze5x5ReductionState(netState);
+              setActiveStageIndex(reduction.stageIndex);
+              setHighlightMode(reduction.highlightMode || 'all');
+              setIsScrambled(true);
+              setActiveCaseId(reduction.suggestedCaseIds[0] || 'custom-layout-reduction');
+
+              const stageCases = currentPuzzle?.guideStages?.[reduction.stageIndex]?.cases || [];
+              const matchedCase = stageCases.find(c => reduction.suggestedCaseIds.includes(c.id)) || stageCases[0];
+              if (matchedCase) {
+                const parseFn = currentPuzzle?.parseAlgorithm || defaultParseAlg;
+                const moves = parseFn(matchedCase.algorithm || matchedCase.moves || '');
+                setActiveMoves(moves);
+                setCurrentMoveIndex(0);
+              }
+              return;
+            }
+
+            // 4. For all other puzzles: fallback pedagogical reduction solution
             const pedagogical = getPedagogicalSolutionForPuzzle(currentPuzzleId);
             if (pedagogical && pedagogical.solutionMoves?.length > 0) {
-              activeMovesRef.current = pedagogical.solutionMoves;
               setActiveMoves(pedagogical.solutionMoves);
               setSolutionStages(pedagogical.stages);
               setCurrentMoveIndex(0);
-              currentMoveIndexRef.current = 0;
               setIsScrambled(true);
               setActiveCaseId('custom-layout-solution');
             }

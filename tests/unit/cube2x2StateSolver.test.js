@@ -10,7 +10,6 @@ import { animateNxNMove } from '../../src/puzzles/nxn/NxNKinematics.js';
 import {
   extract2x2StickerState,
   is2x2Solved,
-  solve2x2State,
   solve2x2FromModel
 } from '../../src/solvers/cube2x2StateSolver.js';
 import { simplifyMoves, parseTurn, formatTurn } from '../../src/solvers/moveSimplifier.js';

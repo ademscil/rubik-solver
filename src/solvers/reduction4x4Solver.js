@@ -9,7 +9,7 @@
  * - Part 4: Eksekusi Paritas OLL & PLL Parity Selesai
  */
 
-import { parseAlgorithm, getInverseMove } from '../cube/rubikNotation.js';
+import { getInverseMove } from '../cube/rubikNotation.js';
 
 export function generatePedagogical4x4Solution() {
   // Part 1: 6 Center 2x2 (Centers Putih, Kuning, Hijau, Merah, Biru, Oranye)

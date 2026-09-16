@@ -17,16 +17,12 @@ import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import * as THREE from 'three';
 import {
-  puzzleRegistry,
   normalizePuzzleId,
-  WCA_PUZZLE_METADATA,
   loadPuzzle,
   getPuzzleMetadata
 } from '../../src/puzzles/registry.js';
 import {
-  disposeHierarchy,
-  disposeScene,
-  teardownViewer
+  disposeHierarchy
 } from '../../src/engine/DisposalPipeline.js';
 import { CameraManager } from '../../src/engine/CameraManager.js';
 import { getStickerMaterial, STICKER_COLORS } from '../../src/engine/TextureCache.js';

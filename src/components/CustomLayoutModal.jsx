@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { X, Check, Palette, Sparkles, AlertCircle, RefreshCw, Box } from 'lucide-react';
-import { CUBE_COLORS, POPULAR_PRESETS } from '../cube/presets';
+import React, { useState, useMemo } from 'react';
+import { X, Check, Palette, Sparkles, AlertCircle, RefreshCw } from 'lucide-react';
+import { POPULAR_PRESETS } from '../cube/presets';
 
 const DEFAULT_PALETTE = [
   { key: 'U', name: 'Putih (U)', hex: '#FFFFFF' },
@@ -75,11 +75,13 @@ export default function CustomLayoutModal({
   };
 
   const [netState, setNetState] = useState(getInitialSolvedState);
+  const [prevPuzzleKey, setPrevPuzzleKey] = useState(`${order}-${puzzle?.id}`);
 
-  // Re-initialize state when puzzle changes
-  useEffect(() => {
+  // Synchronize state when puzzle or order changes during render
+  if (prevPuzzleKey !== `${order}-${puzzle?.id}`) {
+    setPrevPuzzleKey(`${order}-${puzzle?.id}`);
     setNetState(getInitialSolvedState());
-  }, [order, puzzle?.id]);
+  }
 
   // Mathematical validation: each color must have exactly stickersPerFace stickers
   const colorCounts = useMemo(() => {
@@ -264,6 +266,24 @@ export default function CustomLayoutModal({
             </div>
           ) : (
             <div className="space-y-5">
+              {/* Guidance Info Banner */}
+              <div className="bg-sky-950/30 border border-sky-800/40 rounded-2xl p-3 flex items-start gap-2.5 text-sky-200 text-xs">
+                <AlertCircle className="w-4 h-4 text-sky-400 shrink-0 mt-0.5" />
+                <p className="leading-relaxed">
+                  {order >= 4 ? (
+                    <>
+                      <strong className="text-sky-300">Panduan Reduksi Bertahap: </strong>
+                      Warnai stiker sesuai kondisi rubik {order}x{order} fisik Anda. Setelah diterapkan, sistem akan menganalisis kondisi kubus dan memandu Anda dari awal membuat kubus 3x3 di dalamnya (Pusat &rarr; Rusuk &rarr; Fase 3x3).
+                    </>
+                  ) : (
+                    <>
+                      <strong className="text-sky-300">Solver Otomatis: </strong>
+                      Warnai stiker sesuai kondisi rubik fisik Anda. Sistem akan mencari solusi langkah demi langkah untuk menyelesaikan rubik Anda.
+                    </>
+                  )}
+                </p>
+              </div>
+
               {/* Color Palette Bar & Live Counter */}
               <div className="flex flex-col gap-2.5 bg-slate-950/80 p-3 rounded-2xl border border-slate-800">
                 <div className="flex flex-wrap items-center justify-between gap-3">

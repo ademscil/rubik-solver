@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { X, Check, Box, Sparkles, Layers, ShieldAlert, Award, Star, Compass } from 'lucide-react';
+import { X, Check, Box, Layers, ShieldAlert } from 'lucide-react';
 import { ALL_PUZZLE_METADATA } from '../puzzles/registry.js';
 
 // 4 Difficulty Tiers with distinct colors and branding
-export const DIFFICULTY_CONFIG = {
+const DIFFICULTY_CONFIG = {
   beginner: {
     id: 'beginner',
     label: 'Pemula',

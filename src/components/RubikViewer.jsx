@@ -10,9 +10,9 @@ const RubikViewer = forwardRef(function RubikViewer({
   animationSpeed = 1,
   highlightMode = 'all',
   onMoveComplete,
-  editorActive = false,
-  selectedPaintColor = '#FFFFFF',
-  onStickerClick,
+  _editorActive = false,
+  _selectedPaintColor = '#FFFFFF',
+  _onStickerClick,
   puzzle
 }, ref) {
   const mountRef = useRef(null);
@@ -75,7 +75,7 @@ const RubikViewer = forwardRef(function RubikViewer({
 
     // 2. Camera
     const camera = new THREE.PerspectiveCamera(40, width / height, 0.1, 100);
-    const initialDistance = puzzle?.defaultCameraDistance || 8.0;
+    const initialDistance = 8.0;
     camera.position.set(initialDistance * 0.7, initialDistance * 0.6, initialDistance * 0.9);
     cameraRef.current = camera;
 
@@ -108,8 +108,8 @@ const RubikViewer = forwardRef(function RubikViewer({
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.enableDamping = true;
     controls.dampingFactor = 0.06;
-    controls.minDistance = puzzle?.minCameraDistance || 4.0;
-    controls.maxDistance = puzzle?.maxCameraDistance || 30.0;
+    controls.minDistance = 4.0;
+    controls.maxDistance = 30.0;
     controls.enablePan = false;
     controlsRef.current = controls;
 
@@ -119,9 +119,6 @@ const RubikViewer = forwardRef(function RubikViewer({
 
     // Pivot group for intermediate rotations
     scene.add(pivotRef.current);
-
-    // 6. Build model if puzzle definition is already available
-    buildModel();
 
     // 7. Animation Loop
     let animId;

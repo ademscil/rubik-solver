@@ -72,7 +72,6 @@ export function extract2x2StickerState(modelGroup) {
   if (!modelGroup || !modelGroup.children) return null;
   modelGroup.updateMatrixWorld(true);
 
-  const order = 2;
   const half = 0.5;
   const localNormals = [
     new THREE.Vector3(1, 0, 0),  // 0: +X (Right)
@@ -101,7 +100,7 @@ export function extract2x2StickerState(modelGroup) {
         const match = mat?.userData?.cacheKey?.match(/#[0-9A-Fa-f]{6}/);
         hex = match ? match[0].toUpperCase() : null;
       }
-      if (!hex || hex === '#121215') continue;
+      if (!hex || hex === '#121215' || hex === '#181820' || hex === '#18181B' || hex === '#000000' || mat?.userData?.isCore) continue;
 
       const worldNorm = localNormals[faceIdx].clone().applyQuaternion(child.quaternion);
       let slot = -1;
@@ -271,7 +270,6 @@ export function solve2x2FromModel(modelGroup) {
   const totalMoves = moves.length;
   const p1Count = Math.max(1, Math.round(totalMoves * 0.4));
   const p2Count = Math.max(1, Math.round(totalMoves * 0.3));
-  const p3Count = Math.max(0, totalMoves - p1Count - p2Count);
 
   const m1 = moves.slice(0, p1Count);
   const m2 = moves.slice(p1Count, p1Count + p2Count);

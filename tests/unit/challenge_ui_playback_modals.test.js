@@ -156,7 +156,7 @@ function resolveMoveInfo(token, puzzle) {
     try {
       const info = puzzle.getMoveInfo(token);
       if (info) return info;
-    } catch (err) {
+    } catch {
       // fallback
     }
   }

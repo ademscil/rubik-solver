@@ -12,47 +12,25 @@ import {
   NXN_GUIDE_STAGES,
   GUIDE_STAGES_2X2,
   GUIDE_STAGES_3X3,
-  GUIDE_STAGES_4X4,
-  GUIDE_STAGES_5X5,
-  GUIDE_STAGES_6X6,
-  GUIDE_STAGES_7X7
+  GUIDE_STAGES_4X4
 } from '../../src/solvers/guides/nxnGuides.js';
 
 import {
-  NXN_PRESETS,
-  PRESETS_2X2,
-  PRESETS_3X3,
-  PRESETS_4X4,
-  PRESETS_5X5,
-  PRESETS_6X6,
-  PRESETS_7X7
-} from '../../src/solvers/presets/nxnPresets.js';
-
-import {
-  NXN_NOTATION_DICTIONARY,
-  getInverseMove,
   invertAlgorithm,
-  parseAlgorithm,
-  getMoveInfo
+  parseAlgorithm
 } from '../../src/solvers/notation/nxnNotation.js';
 
 import {
   parseNxNMove,
-  getActiveCubies,
   animateNxNMove
 } from '../../src/puzzles/nxn/NxNKinematics.js';
 
 import {
-  buildNxNModel,
-  CUBIE_PITCH
+  buildNxNModel
 } from '../../src/puzzles/nxn/NxNGeometry.js';
 
 import {
-  puzzleRegistry,
-  loadPuzzle,
-  getPuzzlesByDifficulty,
-  DIFFICULTY_TIERS,
-  WCA_PUZZLE_METADATA
+  getPuzzlesByDifficulty
 } from '../../src/puzzles/registry.js';
 
 // Helper to snapshot all cubie positions and rotations in model
@@ -81,7 +59,7 @@ function assertStatesEqual(stateA, stateB, tolerance = 1e-4) {
 }
 
 // Helper to execute algorithm synchronously on model
-function executeAlgorithm(model, algString, order) {
+function executeAlgorithm(model, algString) {
   const tokens = parseAlgorithm(algString);
   for (const token of tokens) {
     animateNxNMove(model, token, null, 0);
@@ -245,16 +223,16 @@ describe('M2 Challenge 2: Parity Algorithm Parsing & Notation Dictionary', () =>
   });
 
   it('verifies algorithm inversion: Alg + Invert(Alg) === Identity on 3D models', () => {
-    PARITY_ALGS.forEach(({ name, order, alg }) => {
+    PARITY_ALGS.forEach(({ order, alg }) => {
       const model = buildNxNModel(order);
       const initial = getModelState(model);
 
       // Execute alg
-      executeAlgorithm(model, alg, order);
+      executeAlgorithm(model, alg);
 
       // Execute inverse
       const invAlg = invertAlgorithm(alg);
-      executeAlgorithm(model, invAlg, order);
+      executeAlgorithm(model, invAlg);
 
       const finalState = getModelState(model);
       assertStatesEqual(initial, finalState);

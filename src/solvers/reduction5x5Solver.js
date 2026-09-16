@@ -14,7 +14,7 @@
 import { parseAlgorithm, getInverseMove } from '../cube/rubikNotation.js';
 
 // Part 1 Variations: First 2 Centers (White & Yellow)
-const PART_1_FIRST_CENTERS = [
+export const PART_1_FIRST_CENTERS = [
   {
     name: 'Baris Pusat Putih & Kuning di Seberang',
     moves: "Rw U Rw' U Rw U2 Rw' 2Rw U 2Rw' U 2Rw U2 2Rw'",
@@ -30,7 +30,7 @@ const PART_1_FIRST_CENTERS = [
 ];
 
 // Part 2 Variations: Last 4 Side Centers (Sesuai foto tutorial YouTube pengguna)
-const PART_2_SIDE_CENTERS = [
+export const PART_2_SIDE_CENTERS = [
   {
     name: 'Pusat Depan & Kanan dengan Komutator Baris',
     moves: "3Rw U 3Rw' U 3Rw U2 3Rw' 2Rw U' 2Rw' U' 2Rw U2 2Rw'",
@@ -46,7 +46,7 @@ const PART_2_SIDE_CENTERS = [
 ];
 
 // Part 3 Variations: First 8 Edges (Freeslice Edge Pairing)
-const PART_3_FIRST_EDGES = [
+export const PART_3_FIRST_EDGES = [
   {
     name: 'Freeslice Tredge Pairing Pasangan Pertama',
     moves: "Uw' R U R' F R' F' R Uw Dw R U R' F R' F' R Dw'",
@@ -62,7 +62,7 @@ const PART_3_FIRST_EDGES = [
 ];
 
 // Part 4 Variations: Last 4 Edges (Slice-Flip-Slice)
-const PART_4_LAST_EDGES = [
+export const PART_4_LAST_EDGES = [
   {
     name: 'Slice-Flip-Slice 4 Rusuk Terakhir',
     moves: "Uw' R U R' F R' F' R Uw 2Uw' R U R' F R' F' R 2Uw",
@@ -78,7 +78,7 @@ const PART_4_LAST_EDGES = [
 ];
 
 // Part 5 Variations: 3x3 Phase (Cross, F2L, OLL Sune)
-const PART_5_3X3_PHASE = [
+export const PART_5_3X3_PHASE = [
   {
     name: 'Tahapan 3x3: Palang Dasar & Sune Kuning',
     moves: "F R U R' U' F' U R U' R' U' F' U F R U R' U R U2 R'",
@@ -94,7 +94,7 @@ const PART_5_3X3_PHASE = [
 ];
 
 // Part 6 Variations: Edge Parity & PLL Complete
-const PART_6_PARITY_PLL = [
+export const PART_6_PARITY_PLL = [
   {
     name: 'Paritas Sayap 5x5 (Feliks Zemdegs CubeSkills) & T-Perm Selesai',
     moves: "Rw U2 x Rw U2 Rw U2 Rw' U2 Lw U2 3Rw' U2 Rw U2 Rw' U2 Rw' R U R' U' R' F R2 U' R' U' R U R' F'",

@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { BookOpen, Zap, ChevronRight, ChevronDown, Play, Compass, Search, Lightbulb, ShieldCheck } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { BookOpen, Zap, ChevronRight, ChevronDown, Play, Compass, Search, Lightbulb } from 'lucide-react';
 
 export default function GuideSidebar({
   puzzle,
@@ -7,7 +7,6 @@ export default function GuideSidebar({
   activeStageIndex = 0,
   onSelectStage,
   onApplyAlgorithm,
-  onLoadPresetCase,
   activeCaseId = null,
   highlightMode = 'all',
   onHighlightModeChange
@@ -15,16 +14,18 @@ export default function GuideSidebar({
   const [activeTab, setActiveTab] = useState('wizard'); // 'wizard' | 'algopedia'
   const [searchQuery, setSearchQuery] = useState('');
   const [expandedStage, setExpandedStage] = useState(activeStageIndex);
+  const [prevProps, setPrevProps] = useState({ stage: activeStageIndex, puzzleId: puzzle?.id });
+
+  // Sync expanded stage when activeStageIndex changes or puzzle changes
+  if (prevProps.stage !== activeStageIndex || prevProps.puzzleId !== puzzle?.id) {
+    setPrevProps({ stage: activeStageIndex, puzzleId: puzzle?.id });
+    setExpandedStage(activeStageIndex);
+  }
 
   // Stages derived from puzzle definition or explicit props
   const stages = useMemo(() => {
     return customGuideStages || puzzle?.guideStages || [];
   }, [customGuideStages, puzzle]);
-
-  // Sync expanded stage when activeStageIndex changes or puzzle changes
-  useEffect(() => {
-    setExpandedStage(activeStageIndex);
-  }, [activeStageIndex, puzzle?.id]);
 
   // Extract all cases across all stages for Algopedia / Search
   const allCases = useMemo(() => {
@@ -252,6 +253,8 @@ export default function GuideSidebar({
             <div className="relative">
               <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
               <input
+                id="algopedia-search"
+                name="algopedia-search"
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
