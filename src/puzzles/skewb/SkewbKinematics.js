@@ -114,6 +114,9 @@ export function animateSkewbMove(modelGroup, moveStr, onComplete, duration = 300
     return;
   }
 
+  // World axis transformed by model's current orientation
+  const worldAxis = axis.clone().applyQuaternion(modelGroup.quaternion).normalize();
+
   // Corner turn: rotate the 4 corner pieces and 3 center pieces as solid units!
   const activePieces = [];
   modelGroup.children.forEach((child) => {
@@ -151,6 +154,7 @@ export function animateSkewbMove(modelGroup, moveStr, onComplete, duration = 300
   const pivot = pivotGroup || new THREE.Group();
   pivot.rotation.set(0, 0, 0);
   pivot.position.set(0, 0, 0);
+  pivot.quaternion.identity();
   pivot.updateMatrix();
   pivot.updateMatrixWorld(true);
   if (!pivot.parent && modelGroup.parent) {
@@ -163,13 +167,13 @@ export function animateSkewbMove(modelGroup, moveStr, onComplete, duration = 300
 
   const finalize = () => {
     activePieces.forEach(mesh => modelGroup.attach(mesh));
-    if (pivot.parent) pivot.parent.remove(pivot);
+    if (!pivotGroup && pivot.parent) pivot.parent.remove(pivot);
     modelGroup.updateMatrixWorld(true);
     onComplete?.();
   };
 
   if (typeof requestAnimationFrame === 'undefined' || duration <= 0) {
-    pivot.rotateOnAxis(axis, angle);
+    pivot.rotateOnAxis(worldAxis, angle);
     pivot.updateMatrixWorld(true);
     finalize();
     return;
@@ -187,7 +191,7 @@ export function animateSkewbMove(modelGroup, moveStr, onComplete, duration = 300
 
     const targetAngle = angle * ease;
     const delta = targetAngle - currentAngle;
-    pivot.rotateOnAxis(axis, delta);
+    pivot.rotateOnAxis(worldAxis, delta);
     pivot.updateMatrixWorld(true);
     currentAngle = targetAngle;
 

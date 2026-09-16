@@ -80,3 +80,4 @@ export function generatePedagogicalSquare1Solution() {
     stages
   };
 }
+

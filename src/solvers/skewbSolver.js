@@ -13,8 +13,9 @@ import { getInverseMove } from '../puzzles/skewb/SkewbKinematics.js';
 export function generatePedagogicalSkewbSolution() {
   // Part 1: 4 Sudut Lapisan Bawah (First Layer Corners)
   const part1Moves = [
-    'R', "R'", 'L', "L'",       // Orientasi sudut 1
-    'U', "U'", 'B', "B'"        // Pasangkan 3 sudut lainnya
+    'R', "U'", "R'", 'U',       // Orientasi sudut 1
+    "L'", 'U', 'L',             // Sisipkan sudut 2-3
+    "R'", 'L', 'R', "L'"        // Kunci lapisan bawah
   ];
 
   // Part 2: Center Kuning ke Atas (Sarah's Sledgehammer)
@@ -23,12 +24,10 @@ export function generatePedagogicalSkewbSolution() {
     "R'", 'L', 'R', "L'"        // Sledgehammer 2 (angkat kuning ke atas)
   ];
 
-  // Part 3: Permutasi Center Samping & Selesai (Center Swap)
+  // Part 3: Permutasi Center Samping & Selesai (Last Centers)
   const part3Moves = [
     "R'", 'L', 'R', "L'",       // Komutator 1
-    'y2',                       // Balik 180°
-    "R'", 'L', 'R', "L'",       // Komutator 2
-    'y2'                        // Re-alignment selesai
+    "B'", 'U', 'B', "U'"        // Komutator belakang-atas (selesaikan seluruh sisi)
   ];
 
   const allSolutionMoves = [
@@ -85,3 +84,4 @@ export function generatePedagogicalSkewbSolution() {
     stages
   };
 }
+
